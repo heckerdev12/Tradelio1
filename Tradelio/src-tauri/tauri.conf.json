@@ -12,9 +12,17 @@
   "app": {
     "windows": [
       {
-        "title": "tradelio",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "Tradelio",
+        "decorations": true,
+        "transparent": false,
+        "backgroundColor": "#0e0f10",
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "minWidth": 1250,
+        "minHeight": 650,
+        "visible": true
       }
     ],
     "security": {
