@@ -7,8 +7,30 @@
     <title>Tauri + React</title>
   </head>
 
-  <body>
+  <body style="margin:0; background:#0e0f10;">
+    <!-- Splash screen with image only -->
+    <div id="startup" style="
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0e0f10 0%, #1a1b1d 100%);
+      user-select: none;
+      pointer-events: none;
+    ">
+      <img src="src/assets/Tradelio.png" alt="Splash Image" style="
+        width: 150px;
+        height: 150px;
+        object-fit: fill;
+        border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      " />
+    </div>
+
+    <!-- React root -->
     <div id="root"></div>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
