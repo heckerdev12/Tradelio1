@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { FaFolderOpen } from "react-icons/fa";
 
 // ----- SWITCH COMPONENT -----
@@ -48,13 +49,12 @@ const sessions = [
 function convertToLocal(time, tz) {
   const [hour, minute] = time.split(":").map(Number);
   const date = new Date();
-  // Create a date in the session timezone
   const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute));
   return new Intl.DateTimeFormat([], {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // local timezone
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   }).format(
     new Date(
       utcDate.toLocaleString("en-US", {
@@ -65,32 +65,86 @@ function convertToLocal(time, tz) {
 }
 
 // ----- SETTINGS PAGE -----
-function SettingsPage() {
+function SettingsPage({ onLockRequest }) {
   const [currency, setCurrency] = useState("USD");
   const [exchangeRate, setExchangeRate] = useState("154.00");
   const [mt4Path, setMt4Path] = useState("");
   const [mt5Path, setMt5Path] = useState("");
   const [pinEnabled, setPinEnabled] = useState(false);
-  const [pinCode, setPinCode] = useState("");
-  const [lockTimeout, setLockTimeout] = useState("300");
+  const [lockTimeout, setLockTimeout] = useState(5);
   const [sessionNotifications, setSessionNotifications] = useState(false);
   const [localSessions, setLocalSessions] = useState([]);
-  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-  const [tempPin, setTempPin] = useState("");
+  const [isDisablePinModalOpen, setIsDisablePinModalOpen] = useState(false);
+  const [disablePin, setDisablePin] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // ----- HANDLE PIN -----
-  const handlePinToggle = (enabled) => {
-    if (enabled && !pinCode) setIsPinModalOpen(true);
-    setPinEnabled(enabled);
+  // Load passcode settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const exists = await invoke('check_passcode_exists');
+        setPinEnabled(exists);
+        
+        if (exists) {
+          const settings = await invoke('get_lock_settings');
+          setLockTimeout(settings.auto_lock_minutes);
+        }
+      } catch (err) {
+        console.error('Failed to load settings:', err);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Handle PIN toggle
+  const handlePinToggle = async (enabled) => {
+    if (!enabled) {
+      setIsDisablePinModalOpen(true);
+    } else {
+      // PIN setup is handled on app launch if no PIN exists
+      alert("Please restart the app to set up a new PIN");
+    }
   };
 
-  const handlePinSave = () => {
-    if (tempPin.length >= 4 && tempPin.length <= 6) {
-      setPinCode(tempPin);
-      setTempPin("");
-      setIsPinModalOpen(false);
-    } else {
-      alert("PIN must be 4-6 digits.");
+  // Handle disable PIN
+  const handleDisablePin = async () => {
+    if (disablePin.length !== 6) {
+      setError("PIN must be 6 digits");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await invoke('disable_passcode', { passcode: disablePin });
+      setPinEnabled(false);
+      setIsDisablePinModalOpen(false);
+      setDisablePin("");
+    } catch (err) {
+      setError(err.toString());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle lock timeout change
+  const handleTimeoutChange = async (minutes) => {
+    setLockTimeout(minutes);
+    
+    try {
+      await invoke('update_lock_settings', { autoLockMinutes: minutes });
+    } catch (err) {
+      console.error('Failed to update lock timeout:', err);
+    }
+  };
+
+  // Manual lock
+  const handleManualLock = () => {
+    if (onLockRequest) {
+      onLockRequest();
     }
   };
 
@@ -191,24 +245,35 @@ function SettingsPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="font-medium">PIN Code Lock</p>
-                  <p className="text-sm text-zinc-500">Lock app after inactivity</p>
+                  <p className="text-sm text-zinc-500">Secure your app with a 6-digit PIN</p>
                 </div>
                 <Switch enabled={pinEnabled} onChange={handlePinToggle} />
               </div>
 
-              {pinEnabled && pinCode && (
+              {pinEnabled && (
                 <div className="space-y-4 pl-4 border-l border-zinc-700">
                   <div>
-                    <label className="text-sm text-zinc-400 block mb-2">Lock Timeout (seconds)</label>
-                    <input
-                      type="number"
-                      min="60"
-                      step="60"
+                    <label className="text-sm text-zinc-400 block mb-2">Auto-lock after inactivity</label>
+                    <select
                       value={lockTimeout}
-                      onChange={(e) => setLockTimeout(e.target.value)}
+                      onChange={(e) => handleTimeoutChange(Number(e.target.value))}
                       className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-lg w-full"
-                    />
+                    >
+                      <option value={0}>Never</option>
+                      <option value={1}>1 minute</option>
+                      <option value={5}>5 minutes</option>
+                      <option value={10}>10 minutes</option>
+                      <option value={30}>30 minutes</option>
+                      <option value={60}>1 hour</option>
+                    </select>
                   </div>
+
+                  <button
+                    onClick={handleManualLock}
+                    className="bg-zinc-800 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-700 text-sm"
+                  >
+                    Lock Now
+                  </button>
                 </div>
               )}
             </div>
@@ -252,29 +317,40 @@ function SettingsPage() {
         </section>
       </div>
 
-      {/* PIN Modal */}
-      <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)}>
-        <h3 className="text-lg font-semibold mb-4">Set PIN Code</h3>
+      {/* Disable PIN Modal */}
+      <Modal isOpen={isDisablePinModalOpen} onClose={() => { setIsDisablePinModalOpen(false); setDisablePin(""); setError(""); }}>
+        <h3 className="text-lg font-semibold mb-4">Disable PIN Lock</h3>
+        <p className="text-sm text-zinc-400 mb-4">Enter your current PIN to disable the lock</p>
+        
         <input
           type="password"
-          placeholder="Enter 4-6 digit PIN"
-          value={tempPin}
-          onChange={(e) => setTempPin(e.target.value)}
+          placeholder="Enter 6-digit PIN"
+          value={disablePin}
+          onChange={(e) => setDisablePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
           className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-lg w-full mb-4"
           maxLength={6}
         />
+
+        {error && (
+          <div className="mb-4 p-2 bg-red-900/20 border border-red-900 rounded text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
         <div className="flex justify-end gap-2">
           <button
-            onClick={() => setIsPinModalOpen(false)}
+            onClick={() => { setIsDisablePinModalOpen(false); setDisablePin(""); setError(""); }}
             className="px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-800"
+            disabled={loading}
           >
             Cancel
           </button>
           <button
-            onClick={handlePinSave}
-            className="px-4 py-2 rounded-lg bg-green-500 text-black hover:bg-green-600"
+            onClick={handleDisablePin}
+            className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+            disabled={loading || disablePin.length !== 6}
           >
-            Save
+            {loading ? "Disabling..." : "Disable PIN"}
           </button>
         </div>
       </Modal>
