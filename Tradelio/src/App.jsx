@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 
 // Components
 import Sidebar from "./components/Navigation";
+import PasscodeSetup from "./components/PasscodeSetup";
+import LockScreen from "./components/LockScreen";
 
 // Pages
 import DashboardPage from "./pages/DashboardPage";
@@ -47,7 +50,7 @@ function SplashScreen() {
 // ---------------------------------------------------------------------------
 // Main App Layout
 // ---------------------------------------------------------------------------
-function MainApp() {
+function MainApp({ onLockRequest }) {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   return (
@@ -65,7 +68,7 @@ function MainApp() {
         {activeTab === "analytics" && <AnalyticsPage />}
         {activeTab === "calendar" && <CalendarPage />}
         {activeTab === "profile" && <ProfilePage />}
-        {activeTab === "settings" && <SettingsPage />}
+        {activeTab === "settings" && <SettingsPage onLockRequest={onLockRequest} />}
 
       </div>
     </div>
@@ -73,21 +76,124 @@ function MainApp() {
 }
 
 // ---------------------------------------------------------------------------
-// Root Component
+// Root Component with Passcode Logic
 // ---------------------------------------------------------------------------
 function App() {
   const [windowLabel, setWindowLabel] = useState("");
+  const [passcodeExists, setPasscodeExists] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lockSettings, setLockSettings] = useState(null);
+  const [lastActivity, setLastActivity] = useState(Date.now());
 
+  // Check window label
   useEffect(() => {
-    const currentWindow = getCurrentWindow(); // Not a promise in Tauri 2
+    const currentWindow = getCurrentWindow();
     setWindowLabel(currentWindow.label);
   }, []);
 
+  // Check passcode status on mount
+  useEffect(() => {
+    const checkPasscode = async () => {
+      try {
+        const exists = await invoke('check_passcode_exists');
+        setPasscodeExists(exists);
+        
+        if (exists) {
+          const locked = await invoke('is_app_locked');
+          setIsLocked(locked);
+          
+          const settings = await invoke('get_lock_settings');
+          setLockSettings(settings);
+        }
+      } catch (err) {
+        console.error('Failed to check passcode:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkPasscode();
+  }, []);
+
+  // Activity tracking and auto-lock
+  useEffect(() => {
+    if (!passcodeExists || !lockSettings || lockSettings.auto_lock_minutes === 0) {
+      return;
+    }
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    const resetTimer = () => {
+      setLastActivity(Date.now());
+    };
+
+    // Add event listeners
+    events.forEach(event => {
+      document.addEventListener(event, resetTimer);
+    });
+
+    // Check for inactivity every second
+    const interval = setInterval(() => {
+      const inactiveTime = (Date.now() - lastActivity) / 1000;
+      const lockTimeout = lockSettings.auto_lock_minutes * 60;
+
+      if (inactiveTime >= lockTimeout && !isLocked) {
+        handleLock();
+      }
+    }, 1000);
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, resetTimer);
+      });
+      clearInterval(interval);
+    };
+  }, [passcodeExists, lockSettings, lastActivity, isLocked]);
+
+  const handlePasscodeSetupComplete = async () => {
+    setPasscodeExists(true);
+    const settings = await invoke('get_lock_settings');
+    setLockSettings(settings);
+    setIsLocked(false);
+  };
+
+  const handleUnlock = () => {
+    setIsLocked(false);
+    setLastActivity(Date.now());
+  };
+
+  const handleLock = async () => {
+    try {
+      await invoke('lock_app');
+      setIsLocked(true);
+    } catch (err) {
+      console.error('Failed to lock app:', err);
+    }
+  };
+
+  // Show splash screen
   if (windowLabel === "splashscreen") {
     return <SplashScreen />;
   }
 
-  return <MainApp />;
+  // Show loading
+  if (isLoading) {
+    return <SplashScreen />;
+  }
+
+  // Show passcode setup if no passcode exists
+  if (!passcodeExists) {
+    return <PasscodeSetup onComplete={handlePasscodeSetupComplete} />;
+  }
+
+  // Show lock screen if locked
+  if (isLocked) {
+    return <LockScreen onUnlock={handleUnlock} />;
+  }
+
+  // Show main app
+  return <MainApp onLockRequest={handleLock} />;
 }
 
 export default App;
