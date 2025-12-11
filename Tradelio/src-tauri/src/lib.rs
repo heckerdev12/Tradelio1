@@ -6,6 +6,7 @@ use passcode::PasscodeState;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .manage(PasscodeState::new())
         .invoke_handler(tauri::generate_handler![
             passcode::check_passcode_exists,
