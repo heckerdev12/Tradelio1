@@ -50,8 +50,13 @@ function SplashScreen() {
 // ---------------------------------------------------------------------------
 // Main App Layout
 // ---------------------------------------------------------------------------
-function MainApp({ onLockRequest }) {
-  const [activeTab, setActiveTab] = useState("dashboard");
+function MainApp({ onLockRequest, initialTab }) {
+  const [activeTab, setActiveTab] = useState(initialTab || "dashboard");
+
+  // Save active tab to sessionStorage whenever it changes
+  useEffect(() => {
+    sessionStorage.setItem('lastActiveTab', activeTab);
+  }, [activeTab]);
 
   return (
     <div className="flex h-screen bg-[#0a0a0a] text-white">
@@ -172,6 +177,11 @@ function App() {
     }
   };
 
+  // Get last active tab from sessionStorage
+  const getInitialTab = () => {
+    return sessionStorage.getItem('lastActiveTab') || 'dashboard';
+  };
+
   // Show splash screen
   if (windowLabel === "splashscreen") {
     return <SplashScreen />;
@@ -193,7 +203,7 @@ function App() {
   }
 
   // Show main app
-  return <MainApp onLockRequest={handleLock} />;
+  return <MainApp onLockRequest={handleLock} initialTab={getInitialTab()} />;
 }
 
 export default App;
