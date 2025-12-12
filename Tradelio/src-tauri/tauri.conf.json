@@ -22,7 +22,8 @@
         "fullscreen": false,
         "minWidth": 1250,
         "minHeight": 650,
-        "visible": true
+        "visible": true,
+        "maximized": true
       }
     ],
     "security": {
