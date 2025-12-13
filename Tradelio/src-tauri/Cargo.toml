@@ -13,50 +13,42 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# Core Tauri (your existing setup)
-tauri = { version = "2", features = [] }
+# Core Tauri
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
+tauri-plugin-dialog = "2"  # <-- ADDED: Required for file picker
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# Security - Password & Key Management (you already have these)
+# Security - Password & Key Management
 bcrypt = "0.15"
 keyring = "2.3"
 
-# Async runtime (you already have this)
+# Async runtime
 tokio = { version = "1", features = ["sync"] }
 
-# NEW: Database with bundled SQLite (no external dependencies!)
+# Database with bundled SQLite (no external dependencies!)
 rusqlite = { version = "0.31", features = ["bundled"] }
 
-# NEW: AES-GCM encryption for database fields
+# AES-GCM encryption for database fields
 aes-gcm = "0.10"
 
-# NEW: Base64 encoding for storing encrypted data
+# Base64 encoding for storing encrypted data
 base64 = "0.21"
 
-# NEW: Random number generation for encryption keys/nonces
+# Random number generation for encryption keys/nonces
 rand = "0.8"
 
-# NEW: Date/Time handling for timestamps
+# Date/Time handling for timestamps
 chrono = { version = "0.4", features = ["serde"] }
 
-# NEW: Better error handling
+# Better error handling
 anyhow = "1.0"
 thiserror = "1.0"
 
-# NEW: UUID generation for unique identifiers
+# UUID generation for unique identifiers
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 [features]
 default = []
-
-# HOW THIS WORKS:
-# 
-# 1. rusqlite with "bundled" feature = SQLite included, NO system dependencies
-# 2. aes-gcm = Encrypts sensitive fields (emails, trade data, etc.)
-# 3. keyring = Stores encryption key in Windows Credential Manager (secure!)
-# 4. Base64 = Converts encrypted binary data to text for SQLite storage
-# 
-# ZERO external dependencies needed - just run "cargo build" and it works!
