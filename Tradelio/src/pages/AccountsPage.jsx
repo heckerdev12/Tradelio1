@@ -412,10 +412,12 @@ function AccountsPage() {
                   onChange={(e) => setNewAccount({ ...newAccount, leverage: e.target.value })}
                   className="bg-zinc-800 border border-zinc-700 px-3 py-2 rounded-lg w-full text-white"
                 >
-                  <option value="1:50">1:50</option>
-                  <option value="1:100">1:100</option>
                   <option value="1:200">1:200</option>
+                  <option value="1:500">1:400</option>
                   <option value="1:500">1:500</option>
+                  <option value="1:500">1:1000</option>
+                  <option value="1:500">1:2000</option>
+                  <option value="1:500">1:2000</option>
                 </select>
               </div>
 
