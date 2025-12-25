@@ -275,20 +275,38 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
           />
         </div>
 
-        {/* Account Number */}
-        <div>
-          <label className="text-sm text-zinc-400 block mb-2 font-medium">
-            Account Number <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="accountNumber"
-            value={formData.accountNumber}
-            onChange={handleChange}
-            placeholder="e.g., U1234567"
-            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
-            required
-          />
+        {/* Account Number and Account Nickname Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Account Number */}
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="accountNumber"
+              value={formData.accountNumber}
+              onChange={handleChange}
+              placeholder="e.g., U1234567"
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+              required
+            />
+          </div>
+
+          {/* Account Nickname */}
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Nickname <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="accountNickname"
+              value={formData.accountNickname || ''}
+              onChange={handleChange}
+              placeholder="e.g., Money Printing"
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+            />
+          </div>
         </div>
 
         {/* Account Type */}
@@ -344,7 +362,20 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
             </select>
           </div>
         </div>
-
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Trading plateform
+            </label>
+            <select
+              name="Trading terminal"
+              value={formData.currency}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            >
+              <option value="MT4">MT4</option>
+              <option value="MT5">MT5</option>
+              <option value="C-Trader">C-Trader</option>
+            </select>
+          </div>
         {/* Action Buttons */}
         <div className="flex gap-3 pt-2">
           <button
