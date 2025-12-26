@@ -247,7 +247,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
         Add Trading Account
       </h3>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Broker Name */}
         <div>
           <label className="text-sm text-zinc-400 block mb-2 font-medium">
@@ -334,23 +334,26 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
 
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
-              Currency
+              Leverage
             </label>
             <select
-              name="currency"
-              value={formData.currency}
+              name="leverage"
+              value={formData.leverage}
               onChange={handleChange}
               className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
             >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
+              <option value="1:200">1:200</option>
+              <option value="1:400">1:400</option>
+              <option value="1:500">1:500</option>
+              <option value="1:1000">1:1000</option>
+              <option value="1:2000">1:2000</option>
+              <option value="1:3000">1:3000</option>
             </select>
           </div>
         </div>
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
-              Trading plateform
+              Trading platform
             </label>
             <select
               name="Trading terminal"
