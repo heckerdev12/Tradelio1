@@ -83,3 +83,21 @@
   width: var(--scrollbar-width);
   height: var(--scrollbar-width);
 }
+
+/* Prevent autofill from changing input background color */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #18181b inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* For Firefox */
+input:-moz-autofill,
+input:-moz-autofill:hover,
+input:-moz-autofill:focus {
+  box-shadow: 0 0 0 30px #18181b inset !important;
+  color: #ffffff !important;
+}
