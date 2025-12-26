@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { History, FileSpreadsheet, FileCode, Download, Plus, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 // ----- CUSTOM DATE PICKER COMPONENT -----
-function DatePicker({ value, onChange, placeholder = "Select date" }) {
+function DatePicker({ value, onChange, placeholder = "Select date", align = "left" }) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const pickerRef = useRef(null);
@@ -114,9 +114,9 @@ function DatePicker({ value, onChange, placeholder = "Select date" }) {
 
     return days;
   };
-
+  /* Calendar */
   return (
-    <div ref={pickerRef} className="relative">
+    <div ref={pickerRef} className="relative w-full">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -129,7 +129,7 @@ function DatePicker({ value, onChange, placeholder = "Select date" }) {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-zinc-900 border border-zinc-800 rounded-lg p-4 shadow-xl z-50 w-full min-w-[280px]">
+        <div className={`absolute top-full mt-2 bg-zinc-900 border border-zinc-800 rounded-lg p-4 shadow-xl z-50 w-[280px] max-w-[calc(100vw-2rem)] ${align === 'right' ? 'right-0' : 'left-0'}`}>
           {/* Month/Year Navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
@@ -167,18 +167,7 @@ function DatePicker({ value, onChange, placeholder = "Select date" }) {
             {renderCalendar()}
           </div>
 
-          {/* Today Button */}
-          <button
-            type="button"
-            onClick={() => {
-              const today = new Date();
-              onChange(formatDate(today));
-              setIsOpen(false);
-            }}
-            className="w-full mt-3 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition"
-          >
-            Today
-          </button>
+          
         </div>
       )}
     </div>
@@ -190,7 +179,7 @@ function Modal({ isOpen, onClose, children }) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto relative">
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden relative">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-zinc-400 hover:text-white text-xl"
@@ -356,9 +345,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
               <option value="GBP">GBP</option>
-              <option value="JPY">JPY</option>
-              <option value="AUD">AUD</option>
-              <option value="CAD">CAD</option>
             </select>
           </div>
         </div>
@@ -637,7 +623,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
         Export Transaction History
       </h3>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div>
           <label className="text-sm text-zinc-400 block mb-2 font-medium">
             Select Account
@@ -663,6 +649,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
               value={startDate}
               onChange={setStartDate}
               placeholder="Start date"
+              align="left"
             />
           </div>
 
@@ -674,6 +661,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
               value={endDate}
               onChange={setEndDate}
               placeholder="End date"
+              align="right"
             />
           </div>
         </div>
