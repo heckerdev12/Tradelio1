@@ -103,7 +103,7 @@ function CalendarPage() {
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-0">
       <h2 className="text-2xl font-bold mb-6">PnL Calendar</h2>
 
       {/* FILTERS */}
