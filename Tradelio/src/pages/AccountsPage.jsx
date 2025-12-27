@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { History, FileSpreadsheet, FileCode, Download, Plus, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { History, FileSpreadsheet, FileCode, Download, Plus, X, ChevronLeft, ChevronRight, Calendar, ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine} from 'lucide-react';
 
 // ----- CUSTOM DATE PICKER COMPONENT -----
 function DatePicker({ value, onChange, placeholder = "Select date", align = "left" }) {
@@ -197,10 +197,11 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
   const [formData, setFormData] = useState({
     brokerName: '',
     accountNumber: '',
+    accountNickname: '',
     accountType: 'Live',
     initialBalance: '',
-    currency: 'USD',
-    notes: ''
+    leverage: '1:400',
+    tradingTerminal: 'MT5'
   });
 
   const handleChange = (e) => {
@@ -219,10 +220,11 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
       name: `${formData.brokerName} - ${formData.accountNumber}`,
       broker: formData.brokerName,
       accountNumber: formData.accountNumber,
+      accountNickname: formData.accountNickname,
       type: formData.accountType,
       balance: parseFloat(formData.initialBalance),
-      currency: formData.currency,
-      notes: formData.notes,
+      leverage: formData.leverage,
+      tradingTerminal: formData.tradingTerminal,
       createdAt: new Date().toISOString()
     };
 
@@ -232,10 +234,11 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
     setFormData({
       brokerName: '',
       accountNumber: '',
+      accountNickname: '',
       accountType: 'Live',
       initialBalance: '',
-      currency: 'USD',
-      notes: ''
+      leverage: '1:400',
+      tradingTerminal: 'MT5'
     });
     
     onClose();
@@ -314,7 +317,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
           </select>
         </div>
 
-        {/* Initial Balance and Currency */}
+        {/* Initial Balance*/}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
@@ -356,7 +359,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
               Trading platform
             </label>
             <select
-              name="Trading terminal"
+              name="TradingTerminal"
               value={formData.currency}
               className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
             >
@@ -760,7 +763,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-transparent text-white p-0">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Trading Accounts</h1>
 
@@ -774,16 +777,55 @@ export default function App() {
         </div>
 
         {/* Accounts Display */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {accounts.map((account, idx) => (
-            <div key={idx} className="bg-black border border-zinc-800 p-6 rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">{account.broker}</h3>
-              <p className="text-sm text-zinc-400 mb-1">Account: {account.accountNumber}</p>
-              <p className="text-sm text-zinc-400 mb-1">Type: {account.type}</p>
-              <p className="text-2xl font-bold mt-3">{account.currency} {account.balance.toFixed(2)}</p>
-              {account.notes && (
-                <p className="text-xs text-zinc-500 mt-2">{account.notes}</p>
-              )}
+            <div key={idx} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+              {/* Header Section */}
+              <div className="p-4 border-b border-zinc-800">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white">{account.broker}</h3>
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                      account.type === 'Live' 
+                        ? 'bg-green-500/20 text-green-400' 
+                        : 'bg-zinc-700 text-zinc-300'
+                    }`}>
+                      {account.type}
+                    </span>
+                  </div>
+                  <span className="text-sm text-zinc-400">#{account.accountNumber}</span>
+                </div>
+                
+                {/* Balance */}
+                <div className="text-3xl font-bold text-green-500 mb-3">
+                  ${account.balance.toFixed(2)}
+                </div>
+                
+                {/* Account Details */}
+                <div className="flex items-center gap-4 text-sm text-zinc-400">
+                  <span>Leverage <span className="text-white font-semibold">{account.leverage}</span></span>
+                  <span>Platform <span className="text-white font-semibold">{account.tradingTerminal}</span></span>
+                  <span>Alias <span className="text-white font-semibold">{account.accountNickname}</span></span>
+                </div>
+              </div>
+              
+              {/* Buttons Section */}
+                <div className="p-4">
+                  <div className="flex gap-2">
+                    <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                      <ArrowDownToLine size={16} />
+                      Withdraw
+                    </button>
+                    <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                      <ArrowLeftRight size={16} />
+                      Transfer
+                    </button>
+                    <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                      <ArrowUpFromLine size={16} />
+                      Deposit
+                    </button>
+                  </div>
+                </div>
             </div>
           ))}
         </div>
