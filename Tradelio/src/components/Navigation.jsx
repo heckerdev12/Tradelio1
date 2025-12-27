@@ -7,9 +7,10 @@ import {
   FaUsers, 
   FaRegCalendarAlt, 
   FaUserCircle, 
-  FaBars,       // For expand/collapse
-  FaTimes,      // Close icon
-  FaSignOutAlt  // Logout icon
+  FaBars,
+  FaTimes,
+  FaSignOutAlt,
+  FaNewspaper  // News icon
 } from 'react-icons/fa';
 
 function Sidebar({ activeTab, setActiveTab }) {
@@ -18,6 +19,7 @@ function Sidebar({ activeTab, setActiveTab }) {
     { id: 'accounts', label: 'Accounts', icon: <FaUsers /> },
     { id: 'trades', label: 'Trades', icon: <FaChartLine /> },
     { id: 'analytics', label: 'Analytics', icon: <FaChartPie /> },
+    { id: 'news', label: 'News', icon: <FaNewspaper /> },
     { id: 'calendar', label: 'Calendar', icon: <FaRegCalendarAlt /> },
     { id: 'profile', label: 'Profile', icon: <FaUserCircle /> },
     { id: 'settings', label: 'Settings', icon: <FaCog /> },
@@ -26,7 +28,7 @@ function Sidebar({ activeTab, setActiveTab }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className={`flex flex-col h-screen bg-zinc-900 text-zinc-200 transition-width duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
+    <div className={`flex flex-col h-screen bg-zinc-900 text-zinc-200 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
       
       {/* Logo / Brand */}
       <div className="flex items-center justify-between p-4 border-b border-zinc-800">
@@ -37,26 +39,27 @@ function Sidebar({ activeTab, setActiveTab }) {
       </div>
 
       {/* Tabs */}
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center w-full p-2 rounded-md transition-colors
-              ${activeTab === tab.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-700 hover:text-white'}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors
+              ${activeTab === tab.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-800/50 hover:text-white'}
             `}
+            title={collapsed ? tab.label : ''}
           >
-            <span className="text-lg">{tab.icon}</span>
-            {!collapsed && <span className="ml-3">{tab.label}</span>}
+            <span className="text-lg flex-shrink-0">{tab.icon}</span>
+            {!collapsed && <span className="ml-3 text-sm font-medium">{tab.label}</span>}
           </button>
         ))}
       </nav>
 
       {/* Footer / Logout */}
       <div className="p-4 border-t border-zinc-800">
-        <button className="flex items-center w-full p-2 rounded-md hover:bg-zinc-700 hover:text-white">
-          <span className="text-lg"><FaSignOutAlt /></span>
-          {!collapsed && <span className="ml-3">Logout</span>}
+        <button className="flex items-center w-full p-3 rounded-lg hover:bg-zinc-800/50 hover:text-white transition-colors">
+          <span className="text-lg flex-shrink-0"><FaSignOutAlt /></span>
+          {!collapsed && <span className="ml-3 text-sm font-medium">Logout</span>}
         </button>
       </div>
     </div>
