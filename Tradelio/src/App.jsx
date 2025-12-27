@@ -15,6 +15,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AccountsPage from "./pages/AccountsPage";
 import CalendarPage from "./pages/CalendarPage";
 import ProfilePage from "./pages/ProfilePage";
+import NewsPage from "./pages/NewsPage";
 
 // ---------------------------------------------------------------------------
 // Splash Screen
@@ -72,6 +73,7 @@ function MainApp({ onLockRequest, initialTab }) {
         {activeTab === "trades" && <TradesPage />}
         {activeTab === "analytics" && <AnalyticsPage />}
         {activeTab === "calendar" && <CalendarPage />}
+        {activeTab === "news" && <NewsPage />}
         {activeTab === "profile" && <ProfilePage />}
         {activeTab === "settings" && <SettingsPage onLockRequest={onLockRequest} />}
 
