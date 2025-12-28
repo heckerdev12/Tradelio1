@@ -756,11 +756,6 @@ export default function App() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
 
-  const handleAddAccount = (newAccount) => {
-    setAccounts(prev => [...prev, newAccount]);
-    alert('Account added successfully!');
-  };
-
   return (
     <div className="min-h-screen bg-transparent text-white p-0">
       <div className="max-w-7xl mx-auto px">
@@ -850,7 +845,6 @@ export default function App() {
       <AddAccountModal
         isOpen={isAddAccountModalOpen}
         onClose={() => setIsAddAccountModalOpen(false)}
-        onAddAccount={handleAddAccount}
       />
 
       <TransactionHistoryModal
