@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { History, FileSpreadsheet, FileCode, Download, Plus, X, ChevronLeft, ChevronRight, Calendar, ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine} from 'lucide-react';
+import { History, FileSpreadsheet, FileCode, Download, Plus, X, ChevronLeft, ChevronRight, Calendar, ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine } from 'lucide-react';
 
 // ----- CUSTOM DATE PICKER COMPONENT -----
 function DatePicker({ value, onChange, placeholder = "Select date", align = "left" }) {
@@ -84,16 +84,14 @@ function DatePicker({ value, onChange, placeholder = "Select date", align = "lef
     const totalDays = daysInMonth(currentMonth);
     const firstDay = firstDayOfMonth(currentMonth);
 
-    // Empty cells for days before the first day of month
     for (let i = 0; i < firstDay; i++) {
       days.push(<div key={`empty-${i}`} className="h-9" />);
     }
 
-    // Actual days
     for (let day = 1; day <= totalDays; day++) {
       const today = isToday(day);
       const selected = isSelected(day);
-      
+
       days.push(
         <button
           key={day}
@@ -114,7 +112,7 @@ function DatePicker({ value, onChange, placeholder = "Select date", align = "lef
 
     return days;
   };
-  /* Calendar */
+
   return (
     <div ref={pickerRef} className="relative w-full">
       <button
@@ -130,7 +128,6 @@ function DatePicker({ value, onChange, placeholder = "Select date", align = "lef
 
       {isOpen && (
         <div className={`absolute top-full mt-2 bg-zinc-900 border border-zinc-800 rounded-lg p-4 shadow-xl z-50 w-[280px] max-w-[calc(100vw-2rem)] ${align === 'right' ? 'right-0' : 'left-0'}`}>
-          {/* Month/Year Navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
@@ -139,11 +136,11 @@ function DatePicker({ value, onChange, placeholder = "Select date", align = "lef
             >
               <ChevronLeft size={20} className="text-zinc-400" />
             </button>
-            
+
             <span className="text-sm font-semibold text-white">
               {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </span>
-            
+
             <button
               type="button"
               onClick={handleNextMonth}
@@ -153,7 +150,6 @@ function DatePicker({ value, onChange, placeholder = "Select date", align = "lef
             </button>
           </div>
 
-          {/* Day Labels */}
           <div className="grid grid-cols-7 gap-1 mb-2">
             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
               <div key={day} className="h-9 flex items-center justify-center text-xs font-medium text-zinc-500">
@@ -162,12 +158,9 @@ function DatePicker({ value, onChange, placeholder = "Select date", align = "lef
             ))}
           </div>
 
-          {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-1">
             {renderCalendar()}
           </div>
-
-          
         </div>
       )}
     </div>
@@ -199,8 +192,9 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
     accountNumber: '',
     accountNickname: '',
     accountType: 'Live',
+    accountPlan: 'Standard',
     initialBalance: '',
-    leverage: '1:400',
+    leverage: '1:200',
     tradingTerminal: 'MT5'
   });
 
@@ -222,6 +216,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
       accountNumber: formData.accountNumber,
       accountNickname: formData.accountNickname,
       type: formData.accountType,
+      accountPlan: formData.accountPlan,
       balance: parseFloat(formData.initialBalance),
       leverage: formData.leverage,
       tradingTerminal: formData.tradingTerminal,
@@ -229,18 +224,18 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
     };
 
     onAddAccount(newAccount);
-    
-    // Reset form
+
     setFormData({
       brokerName: '',
       accountNumber: '',
       accountNickname: '',
       accountType: 'Live',
+      accountPlan: 'Standard',
       initialBalance: '',
-      leverage: '1:400',
+      leverage: '1:200',
       tradingTerminal: 'MT5'
     });
-    
+
     onClose();
   };
 
@@ -251,7 +246,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
       </h3>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Broker Name */}
         <div>
           <label className="text-sm text-zinc-400 block mb-2 font-medium">
             Broker Name <span className="text-red-500">*</span>
@@ -267,9 +261,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
           />
         </div>
 
-        {/* Account Number and Account Nickname Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Account Number */}
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
               Account Number <span className="text-red-500">*</span>
@@ -285,7 +277,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
             />
           </div>
 
-          {/* Account Nickname */}
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
               Account Nickname <span className="text-red-500">*</span>
@@ -301,9 +292,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
           </div>
         </div>
 
-        {/* Account Selection Row */}
         <div className="flex gap-4">
-          {/* Account Type */}
           <div className="flex-1">
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
               Account Type
@@ -319,7 +308,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
             </select>
           </div>
 
-          {/* Account Plan */}
           <div className="flex-1">
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
               Account Plan
@@ -338,8 +326,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
             </select>
           </div>
         </div>
-        
-        {/* Initial Balance*/}
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
@@ -376,21 +363,23 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
             </select>
           </div>
         </div>
-          <div>
-            <label className="text-sm text-zinc-400 block mb-2 font-medium">
-              Trading platform
-            </label>
-            <select
-              name="TradingTerminal"
-              value={formData.currency}
-              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
-            >
-              <option value="MT4">MT4</option>
-              <option value="MT5">MT5</option>
-              <option value="C-Trader">C-Trader</option>
-            </select>
-          </div>
-        {/* Action Buttons */}
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Trading platform
+          </label>
+          <select
+            name="tradingTerminal"
+            value={formData.tradingTerminal}
+            onChange={handleChange}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+          >
+            <option value="MT4">MT4</option>
+            <option value="MT5">MT5</option>
+            <option value="C-Trader">C-Trader</option>
+          </select>
+        </div>
+
         <div className="flex gap-3 pt-2">
           <button
             type="button"
@@ -780,7 +769,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-transparent text-white p-0">
-      <div className="max-w-7xl mx-auto px">
+      <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Trading Accounts</h1>
 
@@ -793,18 +782,16 @@ export default function App() {
           </button>
         </div>
 
-        {/* Accounts Display */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {accounts.map((account, idx) => (
             <div key={idx} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-              {/* Header Section */}
               <div className="p-4 border-b border-zinc-800">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-bold text-white">{account.broker}</h3>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                      account.type === 'Live' 
-                        ? 'bg-green-500/20 text-green-400' 
+                      account.type === 'Live'
+                        ? 'bg-green-500/20 text-green-400'
                         : 'bg-zinc-700 text-zinc-300'
                     }`}>
                       {account.type}
@@ -812,37 +799,35 @@ export default function App() {
                   </div>
                   <span className="text-sm text-zinc-400">#{account.accountNumber}</span>
                 </div>
-                
-                {/* Balance */}
+
                 <div className="text-3xl font-bold text-green-500 mb-3">
                   ${account.balance.toFixed(2)}
                 </div>
-                
-                {/* Account Details */}
+
                 <div className="flex items-center gap-4 text-sm text-zinc-400">
                   <span>Leverage <span className="text-white font-semibold">{account.leverage}</span></span>
                   <span>Platform <span className="text-white font-semibold">{account.tradingTerminal}</span></span>
                   <span>Alias <span className="text-white font-semibold">{account.accountNickname}</span></span>
+                  <span>Account type <span className="text-white font-semibold">{account.accountPlan}</span></span>
                 </div>
               </div>
-              
-              {/* Buttons Section */}
-                <div className="p-4">
-                  <div className="flex gap-2">
-                    <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
-                      <ArrowDownToLine size={16} />
-                      Withdraw
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
-                      <ArrowLeftRight size={16} />
-                      Transfer
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
-                      <ArrowUpFromLine size={16} />
-                      Deposit
-                    </button>
-                  </div>
+
+              <div className="p-4">
+                <div className="flex gap-2">
+                  <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                    <ArrowDownToLine size={16} />
+                    Withdraw
+                  </button>
+                  <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                    <ArrowLeftRight size={16} />
+                    Transfer
+                  </button>
+                  <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                    <ArrowUpFromLine size={16} />
+                    Deposit
+                  </button>
                 </div>
+              </div>
             </div>
           ))}
         </div>
@@ -854,7 +839,6 @@ export default function App() {
         )}
       </div>
 
-      {/* Floating Action Button */}
       <button
         onClick={() => setIsAddAccountModalOpen(true)}
         className="fixed bottom-8 right-8 w-14 h-14 bg-white text-black rounded-full shadow-lg hover:bg-zinc-200 transition flex items-center justify-center group"
@@ -863,10 +847,10 @@ export default function App() {
         <Plus size={24} className="group-hover:rotate-90 transition-transform duration-300" />
       </button>
 
-      {/* Modals */}
       <AddAccountModal
         isOpen={isAddAccountModalOpen}
         onClose={() => setIsAddAccountModalOpen(false)}
+        onAddAccount={(newAccount) => setAccounts([...accounts, newAccount])}
       />
 
       <TransactionHistoryModal
