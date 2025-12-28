@@ -301,22 +301,44 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
           </div>
         </div>
 
-        {/* Account Type */}
-        <div>
-          <label className="text-sm text-zinc-400 block mb-2 font-medium">
-            Account Type
-          </label>
-          <select
-            name="accountType"
-            value={formData.accountType}
-            onChange={handleChange}
-            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
-          >
-            <option value="Live">Live</option>
-            <option value="Demo">Demo</option>
-          </select>
-        </div>
+        {/* Account Selection Row */}
+        <div className="flex gap-4">
+          {/* Account Type */}
+          <div className="flex-1">
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Type
+            </label>
+            <select
+              name="accountType"
+              value={formData.accountType}
+              onChange={handleChange}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            >
+              <option value="Live">Live</option>
+              <option value="Demo">Demo</option>
+            </select>
+          </div>
 
+          {/* Account Plan */}
+          <div className="flex-1">
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Plan
+            </label>
+            <select
+              name="accountPlan"
+              value={formData.accountPlan}
+              onChange={handleChange}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            >
+              <option value="Standard">Standard</option>
+              <option value="Standard Cent">Standard Cent</option>
+              <option value="Pro">Pro</option>
+              <option value="Raw Spread">Raw Spread</option>
+              <option value="Zero Spread">Zero Spread</option>
+            </select>
+          </div>
+        </div>
+        
         {/* Initial Balance*/}
         <div className="grid grid-cols-2 gap-3">
           <div>
