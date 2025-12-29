@@ -33,6 +33,14 @@ const invoke = window.__TAURI__
         case 'get_all_accounts':
           return JSON.parse(storage.getItem('accounts') || '[]');
 
+        case 'update_account':
+          const allAccounts = JSON.parse(storage.getItem('accounts') || '[]');
+          const updatedAccounts = allAccounts.map(acc =>
+            acc.id === args.account.id ? args.account : acc
+          );
+          storage.setItem('accounts', JSON.stringify(updatedAccounts));
+          return args.account;
+
         case 'add_transaction':
           const transactions = JSON.parse(storage.getItem('transactions') || '[]');
           const newTransaction = { ...args.transaction, id: Date.now() };
@@ -453,6 +461,227 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
   );
 }
 
+// ----- EDIT ACCOUNT MODAL -----
+function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
+  const [formData, setFormData] = useState({
+    brokerName: account?.broker || '',
+    accountNumber: account?.account_number || '',
+    accountNickname: account?.account_nickname || '',
+    accountType: account?.account_type || 'Live',
+    accountPlan: account?.account_plan || 'Standard',
+    initialBalance: account?.balance || '',
+    leverage: account?.leverage || '1:200',
+    tradingTerminal: account?.trading_terminal || 'MT5',
+  });
+
+  useEffect(() => {
+    if (account) {
+      setFormData({
+        brokerName: account.broker,
+        accountNumber: account.account_number,
+        accountNickname: account.account_nickname,
+        accountType: account.account_type,
+        accountPlan: account.account_plan,
+        initialBalance: account.balance,
+        leverage: account.leverage,
+        tradingTerminal: account.trading_terminal,
+      });
+    }
+  }, [account]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const updatedAccount = {
+      id: account.id,
+      name: `${formData.brokerName} - ${formData.accountNumber}`,
+      broker: formData.brokerName,
+      account_number: formData.accountNumber,
+      account_nickname: formData.accountNickname,
+      account_type: formData.accountType,
+      account_plan: formData.accountPlan,
+      balance: parseFloat(formData.initialBalance),
+      leverage: formData.leverage,
+      trading_terminal: formData.tradingTerminal,
+      created_at: account.created_at,
+    };
+
+    try {
+      const savedAccount = await invoke('update_account', { account: updatedAccount });
+      onUpdateAccount(savedAccount);
+      onClose();
+    } catch (error) {
+      console.error('Failed to update account:', error);
+      alert('Failed to update account. Please try again.');
+    }
+  };
+
+  if (!account) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <h3 className="text-xl font-semibold mb-6 text-white">
+        Edit Trading Account
+      </h3>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Broker Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="brokerName"
+            value={formData.brokerName}
+            onChange={handleChange}
+            placeholder="e.g., Interactive Brokers"
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="accountNumber"
+              value={formData.accountNumber}
+              onChange={handleChange}
+              placeholder="e.g., U1234567"
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Nickname
+            </label>
+            <input
+              type="text"
+              name="accountNickname"
+              value={formData.accountNickname || ''}
+              onChange={handleChange}
+              placeholder="e.g., Money Printing"
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Type
+            </label>
+            <select
+              name="accountType"
+              value={formData.accountType}
+              onChange={handleChange}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            >
+              <option value="Live">Live</option>
+              <option value="Demo">Demo</option>
+            </select>
+          </div>
+
+          <div className="flex-1">
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Account Plan
+            </label>
+            <select
+              name="accountPlan"
+              value={formData.accountPlan}
+              onChange={handleChange}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            >
+              <option value="Standard">Standard</option>
+              <option value="Standard Cent">Standard Cent</option>
+              <option value="Pro">Pro</option>
+              <option value="Raw Spread">Raw Spread</option>
+              <option value="Zero Spread">Zero Spread</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Initial Balance <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="initialBalance"
+              value={formData.initialBalance}
+              onChange={handleChange}
+              placeholder="10000"
+              step="0.01"
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Leverage
+            </label>
+            <select
+              name="leverage"
+              value={formData.leverage}
+              onChange={handleChange}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            >
+              <option value="1:200">1:200</option>
+              <option value="1:400">1:400</option>
+              <option value="1:500">1:500</option>
+              <option value="1:1000">1:1000</option>
+              <option value="1:2000">1:2000</option>
+              <option value="1:3000">1:3000</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Trading platform
+          </label>
+          <select
+            name="tradingTerminal"
+            value={formData.tradingTerminal}
+            onChange={handleChange}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+          >
+            <option value="MT4">MT4</option>
+            <option value="MT5">MT5</option>
+            <option value="C-Trader">C-Trader</option>
+          </select>
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition font-medium text-white"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold transition"
+          >
+            Update Account
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 // ----- TRANSACTION HISTORY EXPORT MODAL -----
 function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts = [] }) {
   const [selectedAccount, setSelectedAccount] = useState("all");
@@ -820,6 +1049,8 @@ export default function App() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [isEditAccountModalOpen, setIsEditAccountModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -843,6 +1074,15 @@ export default function App() {
 
   const handleAddAccount = (newAccount) => {
     setAccounts(prev => [newAccount, ...prev]);
+  };
+
+  const openEditAccountModal = (account) => {
+    setSelectedAccount(account);
+    setIsEditAccountModalOpen(true);
+  };
+
+  const handleUpdateAccount = (updatedAccount) => {
+    setAccounts(prev => prev.map(acc => acc.id === updatedAccount.id ? updatedAccount : acc));
   };
 
   if (loading) {
@@ -960,6 +1200,13 @@ export default function App() {
         onClose={() => setIsHistoryModalOpen(false)}
         transactions={transactions}
         accounts={accounts}
+      />
+
+      <EditAccountModal
+        isOpen={isEditAccountModalOpen}
+        onClose={() => setIsEditAccountModalOpen(false)}
+        account={selectedAccount}
+        onUpdateAccount={handleUpdateAccount}
       />
     </div>
   );
