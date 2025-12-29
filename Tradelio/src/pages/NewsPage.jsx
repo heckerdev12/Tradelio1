@@ -46,22 +46,6 @@ const CalendarPage = () => {
                 <p className="text-sm text-zinc-400 mt-1">Track major economic events and market-moving news</p>
               </div>
             </div>
-
-            {/* Impact Levels - Moved to header */}
-            <div className="flex items-center gap-4 text-xs text-zinc-400">
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 bg-red-500 rounded-full"></span>
-                High Impact
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full"></span>
-                Medium Impact
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                Low Impact
-              </span>
-            </div>
           </div>
         </div>
 
