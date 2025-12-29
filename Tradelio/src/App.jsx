@@ -49,7 +49,24 @@ function SplashScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// Main App Layout
+// Cached Page Wrapper Component
+// ---------------------------------------------------------------------------
+function CachedPage({ isActive, children }) {
+  return (
+    <div
+      className="absolute inset-0 w-full h-full overflow-auto"
+      style={{
+        display: isActive ? 'block' : 'none',
+        visibility: isActive ? 'visible' : 'hidden'
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main App Layout with Cached Pages
 // ---------------------------------------------------------------------------
 function MainApp({ onLockRequest, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || "dashboard");
@@ -65,17 +82,64 @@ function MainApp({ onLockRequest, initialTab }) {
       {/* SIDEBAR */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 overflow-auto p-6 animate-fadeIn">
+      {/* MAIN CONTENT - All pages stay mounted */}
+      <div className="flex-1 relative overflow-hidden">
+        
+        {/* Dashboard Page */}
+        <CachedPage isActive={activeTab === "dashboard"}>
+          <div className="p-6 animate-fadeIn">
+            <DashboardPage />
+          </div>
+        </CachedPage>
 
-        {activeTab === "dashboard" && <DashboardPage />}
-        {activeTab === "accounts" && <AccountsPage />}
-        {activeTab === "trades" && <TradesPage />}
-        {activeTab === "analytics" && <AnalyticsPage />}
-        {activeTab === "calendar" && <CalendarPage />}
-        {activeTab === "news" && <NewsPage />}
-        {activeTab === "profile" && <ProfilePage />}
-        {activeTab === "settings" && <SettingsPage onLockRequest={onLockRequest} />}
+        {/* Accounts Page */}
+        <CachedPage isActive={activeTab === "accounts"}>
+          <div className="p-6 animate-fadeIn">
+            <AccountsPage />
+          </div>
+        </CachedPage>
+
+        {/* Trades Page */}
+        <CachedPage isActive={activeTab === "trades"}>
+          <div className="p-6 animate-fadeIn">
+            <TradesPage />
+          </div>
+        </CachedPage>
+
+        {/* Analytics Page */}
+        <CachedPage isActive={activeTab === "analytics"}>
+          <div className="p-6 animate-fadeIn">
+            <AnalyticsPage />
+          </div>
+        </CachedPage>
+
+        {/* Calendar Page */}
+        <CachedPage isActive={activeTab === "calendar"}>
+          <div className="p-6 animate-fadeIn">
+            <CalendarPage />
+          </div>
+        </CachedPage>
+
+        {/* News Page */}
+        <CachedPage isActive={activeTab === "news"}>
+          <div className="p-6 animate-fadeIn">
+            <NewsPage />
+          </div>
+        </CachedPage>
+
+        {/* Profile Page */}
+        <CachedPage isActive={activeTab === "profile"}>
+          <div className="p-6 animate-fadeIn">
+            <ProfilePage />
+          </div>
+        </CachedPage>
+
+        {/* Settings Page */}
+        <CachedPage isActive={activeTab === "settings"}>
+          <div className="p-6 animate-fadeIn">
+            <SettingsPage onLockRequest={onLockRequest} />
+          </div>
+        </CachedPage>
 
       </div>
     </div>
