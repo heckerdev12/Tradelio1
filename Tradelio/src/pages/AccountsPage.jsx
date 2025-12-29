@@ -1,5 +1,52 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { History, FileSpreadsheet, FileCode, Download, Plus, X, ChevronLeft, ChevronRight, Calendar, ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine } from 'lucide-react';
+import {
+  History,
+  FileSpreadsheet,
+  FileCode,
+  Download,
+  Plus,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpFromLine,
+  Pencil
+} from 'lucide-react';
+
+// Mock Tauri invoke for web preview - replace with real Tauri in production
+const invoke = window.__TAURI__
+  ? window.__TAURI__.invoke
+  : async (cmd, args) => {
+      console.log('Mock Tauri call:', cmd, args);
+      const storage = window.localStorage;
+
+      switch (cmd) {
+        case 'add_account':
+          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
+          const newAccount = { ...args.account, id: Date.now() };
+          accounts.push(newAccount);
+          storage.setItem('accounts', JSON.stringify(accounts));
+          return newAccount;
+
+        case 'get_all_accounts':
+          return JSON.parse(storage.getItem('accounts') || '[]');
+
+        case 'add_transaction':
+          const transactions = JSON.parse(storage.getItem('transactions') || '[]');
+          const newTransaction = { ...args.transaction, id: Date.now() };
+          transactions.push(newTransaction);
+          storage.setItem('transactions', JSON.stringify(transactions));
+          return newTransaction;
+
+        case 'get_all_transactions':
+          return JSON.parse(storage.getItem('transactions') || '[]');
+
+        default:
+          return null;
+      }
+    };
 
 // ----- CUSTOM DATE PICKER COMPONENT -----
 function DatePicker({ value, onChange, placeholder = "Select date", align = "left" }) {
@@ -203,7 +250,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.brokerName || !formData.accountNumber || !formData.initialBalance) {
       alert('Please fill in all required fields');
@@ -213,30 +260,36 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
     const newAccount = {
       name: `${formData.brokerName} - ${formData.accountNumber}`,
       broker: formData.brokerName,
-      accountNumber: formData.accountNumber,
-      accountNickname: formData.accountNickname,
-      type: formData.accountType,
-      accountPlan: formData.accountPlan,
+      account_number: formData.accountNumber,
+      account_nickname: formData.accountNickname,
+      account_type: formData.accountType,
+      account_plan: formData.accountPlan,
       balance: parseFloat(formData.initialBalance),
       leverage: formData.leverage,
-      tradingTerminal: formData.tradingTerminal,
-      createdAt: new Date().toISOString()
+      trading_terminal: formData.tradingTerminal,
+      created_at: new Date().toISOString()
     };
 
-    onAddAccount(newAccount);
+    try {
+      const savedAccount = await invoke('add_account', { account: newAccount });
+      onAddAccount(savedAccount);
 
-    setFormData({
-      brokerName: '',
-      accountNumber: '',
-      accountNickname: '',
-      accountType: 'Live',
-      accountPlan: 'Standard',
-      initialBalance: '',
-      leverage: '1:200',
-      tradingTerminal: 'MT5'
-    });
+      setFormData({
+        brokerName: '',
+        accountNumber: '',
+        accountNickname: '',
+        accountType: 'Live',
+        accountPlan: 'Standard',
+        initialBalance: '',
+        leverage: '1:200',
+        tradingTerminal: 'MT5'
+      });
 
-    onClose();
+      onClose();
+    } catch (error) {
+      console.error('Failed to add account:', error);
+      alert('Failed to add account. Please try again.');
+    }
   };
 
   return (
@@ -279,7 +332,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
 
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
-              Account Nickname <span className="text-red-500">*</span>
+              Account Nickname
             </label>
             <input
               type="text"
@@ -411,7 +464,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
     let filtered = [...transactions];
 
     if (selectedAccount !== "all") {
-      filtered = filtered.filter(t => t.accountName === selectedAccount);
+      filtered = filtered.filter(t => t.account_name === selectedAccount);
     }
 
     if (startDate) {
@@ -435,7 +488,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
 
     const headers = "Account Name,Type,Amount,Date\n";
     const rows = filteredTransactions.map(t =>
-      `"${t.accountName}","${t.type}",${t.amount},"${t.date}"`
+      `"${t.account_name}","${t.transaction_type}",${t.amount},"${t.date}"`
     ).join("\n");
 
     const csvContent = headers + rows;
@@ -460,11 +513,11 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
     }
 
     const totalDeposits = filteredTransactions
-      .filter(t => t.type === "Deposit")
+      .filter(t => t.transaction_type === "Deposit")
       .reduce((sum, t) => sum + t.amount, 0);
 
     const totalWithdrawals = filteredTransactions
-      .filter(t => t.type === "Withdrawal")
+      .filter(t => t.transaction_type === "Withdrawal")
       .reduce((sum, t) => sum + t.amount, 0);
 
     const htmlContent = `
@@ -593,10 +646,10 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
             ${filteredTransactions.map(t => `
                 <tr>
                     <td>${t.date}</td>
-                    <td>${t.accountName}</td>
-                    <td>${t.type}</td>
-                    <td class="${t.type.toLowerCase()}">
-                        ${t.type === "Deposit" ? "+" : "-"}$${t.amount.toFixed(2)}
+                    <td>${t.account_name}</td>
+                    <td>${t.transaction_type}</td>
+                    <td class="${t.transaction_type.toLowerCase()}">
+                        ${t.transaction_type === "Deposit" ? "+" : "-"}$${t.amount.toFixed(2)}
                     </td>
                 </tr>
             `).join('')}
@@ -763,16 +816,51 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
 // ----- MAIN APP -----
 export default function App() {
   const [accounts, setAccounts] = useState([]);
-  const [transactions] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [loadedAccounts, loadedTransactions] = await Promise.all([
+        invoke('get_all_accounts'),
+        invoke('get_all_transactions')
+      ]);
+
+      setAccounts(loadedAccounts || []);
+      setTransactions(loadedTransactions || []);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddAccount = (newAccount) => {
+    setAccounts(prev => [newAccount, ...prev]);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-transparent text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-zinc-400">Loading accounts...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent text-white p-0">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Trading Accounts</h1>
-
           <button
             onClick={() => setIsHistoryModalOpen(true)}
             className="flex items-center gap-2 px-3 py-2 bg-white text-black hover:bg-zinc-200 rounded-lg transition font-semibold"
@@ -783,32 +871,46 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {accounts.map((account, idx) => (
-            <div key={idx} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+          {accounts.map((account) => (
+            <div key={account.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
               <div className="p-4 border-b border-zinc-800">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-bold text-white">{account.broker}</h3>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                      account.type === 'Live'
+                      account.account_type === 'Live'
                         ? 'bg-green-500/20 text-green-400'
                         : 'bg-zinc-700 text-zinc-300'
                     }`}>
-                      {account.type}
+                      {account.account_type}
                     </span>
                   </div>
-                  <span className="text-sm text-zinc-400">#{account.accountNumber}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-zinc-400">
+                      #{account.account_number}
+                    </span>
+
+                    <button
+                      onClick={() => openEditAccountModal(account)}
+                      title="Edit account"
+                      className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-700 transition"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="text-3xl font-bold text-green-500 mb-3">
                   ${account.balance.toFixed(2)}
                 </div>
 
-                <div className="flex items-center gap-4 text-sm text-zinc-400">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-400">
                   <span>Leverage <span className="text-white font-semibold">{account.leverage}</span></span>
-                  <span>Platform <span className="text-white font-semibold">{account.tradingTerminal}</span></span>
-                  <span>Alias <span className="text-white font-semibold">{account.accountNickname}</span></span>
-                  <span>Account type <span className="text-white font-semibold">{account.accountPlan}</span></span>
+                  <span>Platform <span className="text-white font-semibold">{account.trading_terminal}</span></span>
+                  {account.account_nickname && (
+                    <span>Alias <span className="text-white font-semibold">{account.account_nickname}</span></span>
+                  )}
+                  <span>Type <span className="text-white font-semibold">{account.account_plan}</span></span>
                 </div>
               </div>
 
@@ -850,7 +952,7 @@ export default function App() {
       <AddAccountModal
         isOpen={isAddAccountModalOpen}
         onClose={() => setIsAddAccountModalOpen(false)}
-        onAddAccount={(newAccount) => setAccounts([...accounts, newAccount])}
+        onAddAccount={handleAddAccount}
       />
 
       <TransactionHistoryModal
