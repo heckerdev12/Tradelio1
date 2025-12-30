@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   History,
   FileSpreadsheet,
-  FileCode,
+  FileText,
   Download,
   Plus,
   X,
@@ -55,6 +55,24 @@ const invoke = window.__TAURI__
           return null;
       }
     };
+
+// ----- MODAL COMPONENT -----
+function Modal({ isOpen, onClose, children }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden relative">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-zinc-400 hover:text-white text-xl"
+        >
+          <X size={20} />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // ----- CUSTOM DATE PICKER COMPONENT -----
 function DatePicker({ value, onChange, placeholder = "Select date", align = "left" }) {
@@ -222,21 +240,421 @@ function DatePicker({ value, onChange, placeholder = "Select date", align = "lef
   );
 }
 
-// ----- MODAL COMPONENT -----
-function Modal({ isOpen, onClose, children }) {
-  if (!isOpen) return null;
+// ----- DEPOSIT MODAL -----
+function DepositModal({ isOpen, onClose, accounts, onDeposit }) {
+  const [selectedAccount, setSelectedAccount] = useState('');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedAccount || !amount || !date) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    const account = accounts.find(a => a.id.toString() === selectedAccount);
+    const transaction = {
+      account_name: account.name,
+      transaction_type: 'Deposit',
+      amount: parseFloat(amount),
+      date,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const savedTransaction = await invoke('add_transaction', { transaction });
+      const newBalance = account.balance + parseFloat(amount);
+      await invoke('update_account_balance', {
+        accountId: account.id,
+        newBalance
+      });
+
+      onDeposit(savedTransaction, account.id, newBalance);
+      setSelectedAccount('');
+      setAmount('');
+      setDate('');
+      onClose();
+    } catch (error) {
+      console.error('Failed to add deposit:', error);
+      alert('Failed to add deposit. Please try again.');
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-zinc-400 hover:text-white text-xl"
-        >
-          <X size={20} />
-        </button>
-        {children}
-      </div>
-    </div>
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
+        <ArrowUpFromLine size={20} />
+        Deposit Funds
+      </h3>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Select Account <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            required
+          >
+            <option value="">Choose account...</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} - ${acc.balance.toFixed(2)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Amount <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            step="0.01"
+            min="0.01"
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Date <span className="text-red-500">*</span>
+          </label>
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            placeholder="Select date"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition font-medium text-white"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold transition"
+          >
+            Deposit
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ----- WITHDRAWAL MODAL -----
+function WithdrawalModal({ isOpen, onClose, accounts, onWithdraw }) {
+  const [selectedAccount, setSelectedAccount] = useState('');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState('');
+
+  const selectedAccountData = accounts.find(a => a.id.toString() === selectedAccount);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedAccount || !amount || !date) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    if (parseFloat(amount) > selectedAccountData.balance) {
+      alert('Insufficient balance');
+      return;
+    }
+
+    const transaction = {
+      account_name: selectedAccountData.name,
+      transaction_type: 'Withdrawal',
+      amount: parseFloat(amount),
+      date,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const savedTransaction = await invoke('add_transaction', { transaction });
+      const newBalance = selectedAccountData.balance - parseFloat(amount);
+      await invoke('update_account_balance', {
+        accountId: selectedAccountData.id,
+        newBalance
+      });
+
+      onWithdraw(savedTransaction, selectedAccountData.id, newBalance);
+      setSelectedAccount('');
+      setAmount('');
+      setDate('');
+      onClose();
+    } catch (error) {
+      console.error('Failed to add withdrawal:', error);
+      alert('Failed to add withdrawal. Please try again.');
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
+        <ArrowDownToLine size={20} />
+        Withdraw Funds
+      </h3>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Select Account <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            required
+          >
+            <option value="">Choose account...</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} - ${acc.balance.toFixed(2)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedAccountData && (
+          <div className="bg-zinc-800 p-3 rounded-lg border border-zinc-700">
+            <p className="text-sm text-zinc-400">
+              Available Balance: <span className="text-white font-semibold">${selectedAccountData.balance.toFixed(2)}</span>
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Amount <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            step="0.01"
+            min="0.01"
+            max={selectedAccountData?.balance || 0}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Date <span className="text-red-500">*</span>
+          </label>
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            placeholder="Select date"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition font-medium text-white"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold transition"
+          >
+            Withdraw
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ----- TRANSFER MODAL -----
+function TransferModal({ isOpen, onClose, accounts, onTransfer }) {
+  const [fromAccount, setFromAccount] = useState('');
+  const [toAccount, setToAccount] = useState('');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState('');
+
+  const fromAccountData = accounts.find(a => a.id.toString() === fromAccount);
+  const toAccountData = accounts.find(a => a.id.toString() === toAccount);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!fromAccount || !toAccount || !amount || !date) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    if (fromAccount === toAccount) {
+      alert('Cannot transfer to the same account');
+      return;
+    }
+
+    if (parseFloat(amount) > fromAccountData.balance) {
+      alert('Insufficient balance');
+      return;
+    }
+
+    try {
+      const withdrawalTransaction = {
+        account_name: fromAccountData.name,
+        transaction_type: 'Transfer Out',
+        amount: parseFloat(amount),
+        date,
+        created_at: new Date().toISOString()
+      };
+
+      const depositTransaction = {
+        account_name: toAccountData.name,
+        transaction_type: 'Transfer In',
+        amount: parseFloat(amount),
+        date,
+        created_at: new Date().toISOString()
+      };
+
+      await invoke('add_transaction', { transaction: withdrawalTransaction });
+      await invoke('add_transaction', { transaction: depositTransaction });
+
+      const newFromBalance = fromAccountData.balance - parseFloat(amount);
+      const newToBalance = toAccountData.balance + parseFloat(amount);
+
+      await invoke('update_account_balance', {
+        accountId: fromAccountData.id,
+        newBalance: newFromBalance
+      });
+      await invoke('update_account_balance', {
+        accountId: toAccountData.id,
+        newBalance: newToBalance
+      });
+
+      onTransfer(fromAccountData.id, newFromBalance, toAccountData.id, newToBalance);
+      setFromAccount('');
+      setToAccount('');
+      setAmount('');
+      setDate('');
+      onClose();
+    } catch (error) {
+      console.error('Failed to transfer:', error);
+      alert('Failed to transfer funds. Please try again.');
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
+        <ArrowLeftRight size={20} />
+        Transfer Funds
+      </h3>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            From Account <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={fromAccount}
+            onChange={(e) => setFromAccount(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            required
+          >
+            <option value="">Choose account...</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} - ${acc.balance.toFixed(2)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            To Account <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={toAccount}
+            onChange={(e) => setToAccount(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            required
+          >
+            <option value="">Choose account...</option>
+            {accounts.filter(acc => acc.id.toString() !== fromAccount).map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} - ${acc.balance.toFixed(2)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {fromAccountData && (
+          <div className="bg-zinc-800 p-3 rounded-lg border border-zinc-700">
+            <p className="text-sm text-zinc-400">
+              Available Balance: <span className="text-white font-semibold">${fromAccountData.balance.toFixed(2)}</span>
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Amount <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            step="0.01"
+            min="0.01"
+            max={fromAccountData?.balance || 0}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="text-sm text-zinc-400 block mb-2 font-medium">
+            Date <span className="text-red-500">*</span>
+          </label>
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            placeholder="Select date"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition font-medium text-white"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold transition"
+          >
+            Transfer
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -992,8 +1410,8 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
                   : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800"
               }`}
             >
-              <FileCode size={18} />
-              HTML
+              <FileText size={18} />
+              PDF
             </button>
           </div>
         </div>
@@ -1013,7 +1431,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
             </p>
             <p className="text-zinc-400">
               Format: <span className="text-white font-medium">
-                {fileType === "excel" ? "Excel (CSV)" : "HTML Report"}
+                {fileType === "excel" ? "Excel (CSV)" : "PDF Report"}
               </span>
             </p>
           </div>
@@ -1051,6 +1469,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [isEditAccountModalOpen, setIsEditAccountModalOpen] = useState(false);
+  const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [selectedAccountForTransaction, setSelectedAccountForTransaction] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -1095,6 +1517,22 @@ export default function App() {
       </div>
     );
   }
+  const handleDeposit = (transaction, accountId, newBalance) => {
+    setTransactions(prev => [transaction, ...prev]);
+    setAccounts(prev => prev.map(acc => acc.id === accountId ? {...acc, balance: newBalance} : acc));
+  };
+
+  const handleWithdraw = (transaction, accountId, newBalance) => {
+    setTransactions(prev => [transaction, ...prev]);
+    setAccounts(prev => prev.map(acc => acc.id === accountId ? {...acc, balance: newBalance} : acc));
+  };
+
+  const handleTransfer = (fromAccountId, newFromBalance, toAccountId, newToBalance) => {
+    setAccounts(prev => prev.map(acc =>
+      acc.id === fromAccountId ? {...acc, balance: newFromBalance} :
+      acc.id === toAccountId ? {...acc, balance: newToBalance} : acc
+    ));
+  };
 
   return (
     <div className="min-h-screen bg-transparent text-white p-0">
@@ -1156,15 +1594,33 @@ export default function App() {
 
               <div className="p-4">
                 <div className="flex gap-2">
-                  <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                  <button
+                    onClick={() => {
+                      setSelectedAccountForTransaction(account);
+                      setIsWithdrawModalOpen(true);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm"
+                  >
                     <ArrowDownToLine size={16} />
                     Withdraw
                   </button>
-                  <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                  <button
+                    onClick={() => {
+                      setSelectedAccountForTransaction(account);
+                      setIsTransferModalOpen(true);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm"
+                  >
                     <ArrowLeftRight size={16} />
                     Transfer
                   </button>
-                  <button className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm">
+                  <button
+                    onClick={() => {
+                      setSelectedAccountForTransaction(account);
+                      setIsDepositModalOpen(true);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-zinc-800 hover:bg-white text-white hover:text-black rounded-lg transition-all duration-200 border border-zinc-700 hover:border-zinc-300 font-semibold text-sm"
+                  >
                     <ArrowUpFromLine size={16} />
                     Deposit
                   </button>
@@ -1207,6 +1663,26 @@ export default function App() {
         onClose={() => setIsEditAccountModalOpen(false)}
         account={selectedAccount}
         onUpdateAccount={handleUpdateAccount}
+      />
+      <DepositModal
+        isOpen={isDepositModalOpen}
+        onClose={() => setIsDepositModalOpen(false)}
+        accounts={accounts}
+        onDeposit={handleDeposit}
+      />
+
+      <WithdrawalModal
+        isOpen={isWithdrawModalOpen}
+        onClose={() => setIsWithdrawModalOpen(false)}
+        accounts={accounts}
+        onWithdraw={handleWithdraw}
+      />
+
+      <TransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        accounts={accounts}
+        onTransfer={handleTransfer}
       />
     </div>
   );
