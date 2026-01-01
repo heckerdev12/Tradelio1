@@ -2,15 +2,17 @@
 
 mod passcode;
 mod profile;
+mod accounts;
 
 use passcode::PasscodeState;
+use accounts::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_dialog::init())  // ADD THIS LINE
+        .plugin(tauri_plugin_dialog::init())
         .manage(PasscodeState::new())
         .invoke_handler(tauri::generate_handler![
             // Passcode
@@ -25,7 +27,18 @@ pub fn run() {
 
             // Profile
             profile::save_profile_image,
-            profile::get_profile
+            profile::get_profile,
+
+            // Accounts and Transactions
+            add_account,
+            get_all_accounts,
+            update_account_balance,
+            delete_account,
+            add_transaction,
+            get_all_transactions,
+            get_transactions_by_account,
+            update_account,
+            update_transaction,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
