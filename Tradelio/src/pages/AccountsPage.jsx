@@ -12,7 +12,8 @@ import {
   ArrowDownToLine,
   ArrowLeftRight,
   ArrowUpFromLine,
-  Pencil
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 // Mock Tauri invoke for web preview - replace with real Tauri in production
@@ -23,38 +24,86 @@ const invoke = window.__TAURI__
       const storage = window.localStorage;
 
       switch (cmd) {
-        case 'add_account':
+        case 'add_account': {
           const accounts = JSON.parse(storage.getItem('accounts') || '[]');
           const newAccount = { ...args.account, id: Date.now() };
           accounts.push(newAccount);
           storage.setItem('accounts', JSON.stringify(accounts));
           return newAccount;
+        }
 
         case 'get_all_accounts':
           return JSON.parse(storage.getItem('accounts') || '[]');
 
-        case 'update_account':
-          const allAccounts = JSON.parse(storage.getItem('accounts') || '[]');
-          const updatedAccounts = allAccounts.map(acc =>
+        case 'update_account': {
+          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
+          const updatedAccounts = accounts.map(acc =>
             acc.id === args.account.id ? args.account : acc
           );
           storage.setItem('accounts', JSON.stringify(updatedAccounts));
           return args.account;
+        }
 
-        case 'add_transaction':
+        case 'update_account_balance': {
+          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
+          const updatedAccounts = accounts.map(acc =>
+            acc.id === args.accountId ? { ...acc, balance: args.newBalance } : acc
+          );
+          storage.setItem('accounts', JSON.stringify(updatedAccounts));
+          return { success: true };
+        }
+
+        case 'add_transaction': {
           const transactions = JSON.parse(storage.getItem('transactions') || '[]');
           const newTransaction = { ...args.transaction, id: Date.now() };
           transactions.push(newTransaction);
           storage.setItem('transactions', JSON.stringify(transactions));
           return newTransaction;
+        }
 
         case 'get_all_transactions':
           return JSON.parse(storage.getItem('transactions') || '[]');
+
+        case 'delete_account': {
+          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
+          const filteredAccounts = accounts.filter(acc => acc.id !== args.accountId);
+          storage.setItem('accounts', JSON.stringify(filteredAccounts));
+          return { success: true };
+        }
 
         default:
           return null;
       }
     };
+    
+// ----- CONFIRMATION MODAL COMPONENT -----
+function ConfirmationModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Delete", cancelText = "Cancel" }) {
+  if (!isOpen) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <div className="text-center p-4">
+        <h3 className="text-xl font-semibold mb-4 text-white">{title}</h3>
+        <p className="text-zinc-400 mb-6">{message}</p>
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition font-medium text-white"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 
 // ----- MODAL COMPONENT -----
 function Modal({ isOpen, onClose, children }) {
@@ -1460,6 +1509,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
   );
 }
 
+
 // ----- MAIN APP -----
 export default function App() {
   const [accounts, setAccounts] = useState([]);
@@ -1473,7 +1523,8 @@ export default function App() {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [selectedAccountForTransaction, setSelectedAccountForTransaction] = useState(null);
-
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState(null);
   useEffect(() => {
     loadData();
   }, []);
@@ -1534,6 +1585,17 @@ export default function App() {
     ));
   };
 
+  const handleDeleteAccount = async (accountId) => {
+    try {
+      await invoke('delete_account', { accountId });
+      setAccounts(prev => prev.filter(acc => acc.id !== accountId));
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      alert('Failed to delete account. Please try again.');
+    }
+  };
+
+  
   return (
     <div className="min-h-screen bg-transparent text-white p-0">
       <div className="max-w-7xl mx-auto px-4">
@@ -1574,6 +1636,16 @@ export default function App() {
                       className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-700 transition"
                     >
                       <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAccountToDelete(account); // Pass the whole account object
+                        setIsDeleteConfirmOpen(true);
+                      }}
+                      title="Delete account"
+                      className="p-1.5 rounded-md text-red-400 hover:text-white hover:bg-red-700 transition"
+                    >
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
@@ -1683,6 +1755,30 @@ export default function App() {
         onClose={() => setIsTransferModalOpen(false)}
         accounts={accounts}
         onTransfer={handleTransfer}
+      />
+      <ConfirmationModal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => {
+          setIsDeleteConfirmOpen(false);
+          setAccountToDelete(null);
+        }}
+        onConfirm={async () => {
+          if (accountToDelete) {
+            await handleDeleteAccount(accountToDelete.id);
+            setIsDeleteConfirmOpen(false);
+            setAccountToDelete(null);
+          }
+        }}
+        title="Delete Trading Account"
+        message={
+          accountToDelete
+            ? `Are you sure you want to delete the account "${accountToDelete.broker}"${
+                accountToDelete.account_nickname ? ` (Alias: "${accountToDelete.account_nickname}")` : ""
+              }? This action cannot be undone.`
+            : "Are you sure you want to delete this account? This action cannot be undone."
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </div>
   );
