@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { FaFolderOpen } from "react-icons/fa";
+import { FaFolderOpen, FaExternalLinkAlt } from "react-icons/fa";
+import { toast } from "sonner";
 
 // ----- SWITCH COMPONENT -----
 function Switch({ enabled, onChange }) {
@@ -68,8 +69,7 @@ function convertToLocal(time, tz) {
 function SettingsPage({ onLockRequest }) {
   const [currency, setCurrency] = useState("USD");
   const [exchangeRate, setExchangeRate] = useState("154.00");
-  const [mt4Path, setMt4Path] = useState("");
-  const [mt5Path, setMt5Path] = useState("");
+  const [tradeLioPath, setTradeLioPath] = useState("");
   const [pinEnabled, setPinEnabled] = useState(false);
   const [lockTimeout, setLockTimeout] = useState(5);
   const [sessionNotifications, setSessionNotifications] = useState(false);
@@ -78,6 +78,50 @@ function SettingsPage({ onLockRequest }) {
   const [disablePin, setDisablePin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Load Tradelio path on mount (from saved preferences or default)
+  useEffect(() => {
+    const loadTradeLioPath = async () => {
+      try {
+        // Get saved path from store (or default Documents location)
+        const path = await invoke('get_tradelio_path');
+        if (path) {
+          setTradeLioPath(path);
+        }
+      } catch (err) {
+        console.error('Failed to get Tradelio path:', err);
+      }
+    };
+
+    loadTradeLioPath();
+  }, []);
+
+  // Handle folder selection
+  const handleSelectTradeLioLocation = async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select location for Tradelio folder'
+      });
+
+      if (selected) {
+        const newPath = await invoke('create_tradelio_at_custom_location', { 
+          selectedPath: selected 
+        });
+        setTradeLioPath(newPath);
+        toast.success('Tradelio folder created successfully', {
+          description: newPath
+        });
+      }
+    } catch (err) {
+      console.error('Failed to select folder:', err);
+      toast.error('Failed to create Tradelio folder', {
+        description: err.toString()
+      });
+    }
+  };
 
   // Load passcode settings on mount
   useEffect(() => {
@@ -98,13 +142,29 @@ function SettingsPage({ onLockRequest }) {
     loadSettings();
   }, []);
 
+  // Open Tradelio folder in file explorer
+  const handleOpenTradeLioFolder = async () => {
+    try {
+      if (tradeLioPath) {
+        await invoke('open_folder_at_path', { folderPath: tradeLioPath });
+        toast.success('Opened Tradelio folder');
+      } else {
+        toast.warning('Please select a Tradelio location first');
+      }
+    } catch (err) {
+      console.error('Failed to open folder:', err);
+      toast.error('Failed to open folder', {
+        description: err.toString()
+      });
+    }
+  };
+
   // Handle PIN toggle
   const handlePinToggle = async (enabled) => {
     if (!enabled) {
       setIsDisablePinModalOpen(true);
     } else {
-      // PIN setup is handled on app launch if no PIN exists
-      alert("Please restart the app to set up a new PIN");
+      toast.info('Please restart the app to set up a new PIN');
     }
   };
 
@@ -123,8 +183,12 @@ function SettingsPage({ onLockRequest }) {
       setPinEnabled(false);
       setIsDisablePinModalOpen(false);
       setDisablePin("");
+      toast.success('PIN lock disabled successfully');
     } catch (err) {
       setError(err.toString());
+      toast.error('Failed to disable PIN', {
+        description: err.toString()
+      });
     } finally {
       setLoading(false);
     }
@@ -136,8 +200,10 @@ function SettingsPage({ onLockRequest }) {
     
     try {
       await invoke('update_lock_settings', { autoLockMinutes: minutes });
+      toast.success('Auto-lock timeout updated');
     } catch (err) {
       console.error('Failed to update lock timeout:', err);
+      toast.error('Failed to update lock timeout');
     }
   };
 
@@ -145,6 +211,7 @@ function SettingsPage({ onLockRequest }) {
   const handleManualLock = () => {
     if (onLockRequest) {
       onLockRequest();
+      toast.info('App locked');
     }
   };
 
@@ -198,41 +265,66 @@ function SettingsPage({ onLockRequest }) {
         {/* TRADING IMPORT SETTINGS */}
         <section>
           <h3 className="text-lg font-semibold mb-4">Trading Data Import</h3>
-          <p className="text-sm text-zinc-500 mb-6">
-            Set the folder where the EA exports your trading history files.
-          </p>
-          <div className="space-y-6">
-            <div>
-              <label className="text-sm text-zinc-400 block mb-2">MT4 Export Folder</label>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  placeholder="C:/Users/.../MQL4/Files"
-                  value={mt4Path}
-                  onChange={(e) => setMt4Path(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-lg flex-1"
-                />
-                <button className="bg-zinc-800 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-700 flex items-center gap-2">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="font-medium mb-1">Tradelio Data Folder</p>
+                <p className="text-sm text-zinc-500">
+                  Choose where to store your trading data
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSelectTradeLioLocation}
+                  className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+                >
                   <FaFolderOpen />
-                  Browse
+                  Choose Location
                 </button>
+                {tradeLioPath && (
+                  <button
+                    onClick={handleOpenTradeLioFolder}
+                    className="bg-zinc-800 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-700 flex items-center gap-2 text-sm"
+                  >
+                    <FaExternalLinkAlt />
+                    Open
+                  </button>
+                )}
               </div>
             </div>
-            <div>
-              <label className="text-sm text-zinc-400 block mb-2">MT5 Export Folder</label>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  placeholder="C:/Users/.../MQL5/Files"
-                  value={mt5Path}
-                  onChange={(e) => setMt5Path(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-lg flex-1"
-                />
-                <button className="bg-zinc-800 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-700 flex items-center gap-2">
-                  <FaFolderOpen />
-                  Browse
-                </button>
+            
+            {tradeLioPath ? (
+              <div className="bg-zinc-950 rounded px-3 py-2 text-sm text-zinc-400 font-mono">
+                {tradeLioPath}
               </div>
+            ) : (
+              <div className="bg-amber-900/20 border border-amber-900 rounded px-3 py-2 text-sm text-amber-400">
+                ⚠ No location set. Click "Choose Location" to set up your Tradelio folder.
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                <p className="font-medium">EA Manual Export (MT4)</p>
+              </div>
+              <p className="text-sm text-zinc-500 ml-5">
+                Manually export your MT4 EA history and place files in:{" "}
+                <span className="text-zinc-300 font-mono">Tradelio/EA_Manual/</span>
+              </p>
+            </div>
+
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <p className="font-medium">MT5 Automatic Export</p>
+              </div>
+              <p className="text-sm text-zinc-500 ml-5">
+                MT5 data will be automatically synced to:{" "}
+                <span className="text-zinc-300 font-mono">Tradelio/MT5_Auto/</span>
+              </p>
             </div>
           </div>
         </section>
