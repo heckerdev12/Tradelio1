@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
+import { Toaster } from "sonner";
 
 // Components
 import Sidebar from "./components/Navigation";
@@ -260,16 +261,31 @@ function App() {
 
   // Show passcode setup if no passcode exists
   if (!passcodeExists) {
-    return <PasscodeSetup onComplete={handlePasscodeSetupComplete} />;
+    return (
+      <>
+        <Toaster position="top-center" richColors theme="dark" />
+        <PasscodeSetup onComplete={handlePasscodeSetupComplete} />
+      </>
+    );
   }
 
   // Show lock screen if locked
   if (isLocked) {
-    return <LockScreen onUnlock={handleUnlock} />;
+    return (
+      <>
+        <Toaster position="top-center" richColors theme="dark" />
+        <LockScreen onUnlock={handleUnlock} />
+      </>
+    );
   }
 
   // Show main app
-  return <MainApp onLockRequest={handleLock} initialTab={getInitialTab()} />;
+  return (
+    <>
+      <Toaster position="top-center" richColors theme="dark" />
+      <MainApp onLockRequest={handleLock} initialTab={getInitialTab()} />
+    </>
+  );
 }
 
 export default App;
