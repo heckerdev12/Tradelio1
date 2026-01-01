@@ -3,6 +3,7 @@
 mod passcode;
 mod profile;
 mod accounts;
+mod folders; // New module
 
 use passcode::PasscodeState;
 use accounts::*;
@@ -10,6 +11,18 @@ use accounts::*;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|_app| {
+            // Initialize Tradelio folders on app startup
+            match folders::init_tradelio_folders() {
+                Ok(path) => {
+                    println!("✓ Tradelio folders ready at: {:?}", path);
+                }
+                Err(e) => {
+                    eprintln!("⚠ Warning: Could not create Tradelio folders: {}", e);
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
@@ -39,6 +52,13 @@ pub fn run() {
             get_transactions_by_account,
             update_account,
             update_transaction,
+            
+            // Folders
+            folders::get_tradelio_path,
+            folders::get_saved_tradelio_path,
+            folders::open_tradelio_folder,
+            folders::open_folder_at_path,  
+            folders::create_tradelio_at_custom_location,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
