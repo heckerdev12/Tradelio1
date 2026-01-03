@@ -1,17 +1,29 @@
-import { useState } from 'react';
-import { 
-  FaTachometerAlt, 
-  FaChartLine, 
-  FaChartPie, 
-  FaCog, 
-  FaUsers, 
-  FaRegCalendarAlt, 
-  FaUserCircle, 
+import { useState, useEffect } from 'react';
+import {
+  FaTachometerAlt,
+  FaChartLine,
+  FaChartPie,
+  FaCog,
+  FaUsers,
+  FaRegCalendarAlt,
   FaBars,
   FaTimes,
-  FaSignOutAlt,
-  FaNewspaper  // News icon
+  FaNewspaper,
+  FaUserCircle
 } from 'react-icons/fa';
+import { Store } from "@tauri-apps/plugin-store";
+import { loadProfile } from "../api/profile";
+import { convertFileSrc } from "@tauri-apps/api/core";
+
+// Initialize store
+let store = null;
+
+async function getStore() {
+  if (!store) {
+    store = await Store.load("settings.json");
+  }
+  return store;
+}
 
 function Sidebar({ activeTab, setActiveTab }) {
   const tabs = [
@@ -26,10 +38,48 @@ function Sidebar({ activeTab, setActiveTab }) {
   ];
 
   const [collapsed, setCollapsed] = useState(false);
+  const [user, setUser] = useState({
+    fullName: "",
+    profilePic: "",
+  });
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const storeInstance = await getStore();
+      const profileData = await storeInstance.get("user_profile");
+
+      let userData = {
+        fullName: "",
+        profilePic: "",
+      };
+
+      if (profileData) {
+        const parsed = typeof profileData === "string" ? JSON.parse(profileData) : profileData;
+        userData = { ...userData, ...parsed };
+      }
+
+      // Load profile pic from database
+      try {
+        const dbProfilePic = await loadProfile();
+        if (dbProfilePic) {
+          userData.profilePic = convertFileSrc(dbProfilePic);
+        }
+      } catch (dbErr) {
+        console.log("No profile picture in database yet:", dbErr);
+      }
+
+      setUser(userData);
+    } catch (err) {
+      console.error("Error loading user data:", err);
+    }
+  };
 
   return (
     <div className={`flex flex-col h-screen bg-zinc-900 text-zinc-200 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
-      
       {/* Logo / Brand */}
       <div className="flex items-center justify-between p-4 border-b border-zinc-800">
         {!collapsed && <h1 className="text-xl font-bold">Tradelio</h1>}
@@ -55,13 +105,30 @@ function Sidebar({ activeTab, setActiveTab }) {
         ))}
       </nav>
 
-      {/* Footer / Logout */}
+      {/* Profile Section */}
       <div className="p-4 border-t border-zinc-800">
-        <button className="flex items-center w-full p-3 rounded-lg hover:bg-zinc-800/50 hover:text-white transition-colors">
-          <span className="text-lg flex-shrink-0"><FaSignOutAlt /></span>
-          {!collapsed && <span className="ml-3 text-sm font-medium">Logout</span>}
-        </button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            {user.profilePic ? (
+              <img
+                src={user.profilePic}
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
+                <FaUserCircle className="text-sm text-zinc-600" />
+              </div>
+            )}
+            {!collapsed && (
+              <div className="ml-3">
+                <p className="text-sm font-medium">{user.fullName || "User"}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
     </div>
   );
 }
