@@ -366,7 +366,7 @@ function ProfilePage() {
           <button
             onClick={saveProfileData}
             disabled={saving}
-            className="bg-green-500 text-black px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
+            className="bg-zinc-300 text-black px-4 py-2 rounded hover:bg-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>
