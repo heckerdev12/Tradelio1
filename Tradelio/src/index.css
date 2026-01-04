@@ -101,3 +101,14 @@ input:-moz-autofill:focus {
   box-shadow: 0 0 0 30px #18181b inset !important;
   color: #ffffff !important;
 }
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
