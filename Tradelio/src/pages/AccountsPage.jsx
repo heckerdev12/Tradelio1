@@ -13,7 +13,9 @@ import {
   ArrowLeftRight,
   ArrowUpFromLine,
   Pencil,
-  Trash2
+  Trash2,
+  Eye, 
+  EyeOff
 } from 'lucide-react';
 
 // Mock Tauri invoke for web preview - replace with real Tauri in production
@@ -1525,6 +1527,46 @@ export default function App() {
   const [selectedAccountForTransaction, setSelectedAccountForTransaction] = useState(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState(null);
+  const [balanceVisible, setBalanceVisible] = useState(false);
+  const [inactivityTimer, setInactivityTimer] = useState(null);
+
+  // Auto-hide balance after 30 seconds of inactivity
+  useEffect(() => {
+    const resetTimer = () => {
+      // Clear existing timer
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+
+      // Set new timer - hide balance after 30 seconds
+      const timer = setTimeout(() => {
+        setBalanceVisible(false);
+      }, 10000); // 30 seconds
+
+      setInactivityTimer(timer);
+    };
+
+    // Activity events to reset timer
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    activityEvents.forEach(event => {
+      document.addEventListener(event, resetTimer);
+    });
+
+    // Start initial timer
+    resetTimer();
+
+    // Cleanup
+    return () => {
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [balanceVisible]); // Re-run when balance visibility changes
+
   useEffect(() => {
     loadData();
   }, []);
@@ -1650,8 +1692,17 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="text-3xl font-bold text-green-500 mb-3">
-                  ${account.balance.toFixed(2)}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-3xl font-bold text-green-500">
+                    {balanceVisible ? `$${account.balance.toFixed(2)}` : '••••••••'}
+                  </div>
+                  <button
+                    onClick={() => setBalanceVisible(!balanceVisible)}
+                    className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+                    title={balanceVisible ? "Hide balance" : "Show balance"}
+                  >
+                    {balanceVisible ? <Eye size={20} /> : <EyeOff size={20} />}
+                  </button>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-400">
