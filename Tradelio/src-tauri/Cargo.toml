@@ -14,7 +14,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # Core Tauri
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
 tauri-plugin-dialog = "2"
@@ -60,5 +60,6 @@ csv = "1.3"
 tera = "1.19"
 wkhtmltopdf = "0.4"  # Lighter than Chrome, still good quality
 tauri-plugin-notification = "2.0.0"
+tauri-plugin-shell = "2"
 [features]
 default = []
