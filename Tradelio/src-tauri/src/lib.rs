@@ -4,15 +4,17 @@ mod passcode;
 mod profile;
 mod accounts;
 mod folders;
-mod notifications; // Add this line
+mod notifications;
 
 use passcode::PasscodeState;
 use accounts::*;
+use tauri::{Manager, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .setup(|_app| {
+        .setup(|app| {
+            // Initialize folders
             match folders::init_tradelio_folders() {
                 Ok(path) => {
                     println!("✓ Tradelio folders ready at: {:?}", path);
@@ -21,12 +23,64 @@ pub fn run() {
                     eprintln!("⚠ Warning: Could not create Tradelio folders: {}", e);
                 }
             }
+
+            // Create system tray menu
+            let show_i = MenuItem::with_id(app, "show", "Show Tradelio", true, None::<&str>)?;
+            let hide_i = MenuItem::with_id(app, "hide", "Hide Window", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            
+            let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
+
+            // Build system tray
+            let _tray = TrayIconBuilder::with_id("main-tray")
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
+            // Handle window close -> minimize to tray
+            if let Some(window) = app.get_webview_window("main") {
+                let window_clone = window.clone(); // Clone the window for the closure
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window_clone.hide(); // Use the cloned window
+                    }
+                });
+            }
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init()) // Add this line
+        .plugin(tauri_plugin_notification::init())
         .manage(PasscodeState::new())
         .invoke_handler(tauri::generate_handler![
             // Passcode
