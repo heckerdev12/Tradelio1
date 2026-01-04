@@ -541,14 +541,6 @@ function SettingsPage({ onLockRequest }) {
             )}
           </div>
         </section>
-
-        {/* DATA MANAGEMENT */}
-        <section>
-          <h3 className="text-lg font-semibold mb-4">Data</h3>
-          <button className="bg-red-900/40 text-red-400 px-5 py-2 rounded-lg border border-red-900 hover:bg-red-900 transition">
-            Clear All Data
-          </button>
-        </section>
       </div>
 
       {/* Disable PIN Modal */}
