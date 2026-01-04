@@ -3,7 +3,8 @@
 mod passcode;
 mod profile;
 mod accounts;
-mod folders; // New module
+mod folders;
+mod notifications; // Add this line
 
 use passcode::PasscodeState;
 use accounts::*;
@@ -12,7 +13,6 @@ use accounts::*;
 pub fn run() {
     tauri::Builder::default()
         .setup(|_app| {
-            // Initialize Tradelio folders on app startup
             match folders::init_tradelio_folders() {
                 Ok(path) => {
                     println!("✓ Tradelio folders ready at: {:?}", path);
@@ -26,6 +26,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init()) // Add this line
         .manage(PasscodeState::new())
         .invoke_handler(tauri::generate_handler![
             // Passcode
@@ -59,6 +60,11 @@ pub fn run() {
             folders::open_tradelio_folder,
             folders::open_folder_at_path,  
             folders::create_tradelio_at_custom_location,
+
+            // Notifications
+            notifications::send_test_notification,
+            notifications::send_trade_notification,
+            notifications::send_session_alert,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
