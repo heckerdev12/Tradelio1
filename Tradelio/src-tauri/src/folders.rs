@@ -31,6 +31,8 @@ pub fn init_tradelio_folders() -> Result<PathBuf, String> {
     // Create main folder and subfolders
     fs::create_dir_all(documents_path.join("EA_Manual"))
         .map_err(|e| format!("Failed to create EA_Manual folder: {}", e))?;
+    fs::create_dir_all(documents_path.join("Data_export"))
+        .map_err(|e| format!("Failed to create data_export folder: {}", e))?;
     fs::create_dir_all(documents_path.join("MT5_Auto"))
         .map_err(|e| format!("Failed to create MT5_Auto folder: {}", e))?;
     
@@ -44,6 +46,8 @@ pub fn create_tradelio_at_path(base_path: PathBuf) -> Result<PathBuf, String> {
     // Create main folder and subfolders
     fs::create_dir_all(tradelio_path.join("EA_Manual"))
         .map_err(|e| format!("Failed to create EA_Manual folder: {}", e))?;
+    fs::create_dir_all(tradelio_path.join("Data_export"))
+        .map_err(|e| format!("Failed to create Data_export folder: {}", e))?;
     fs::create_dir_all(tradelio_path.join("MT5_Auto"))
         .map_err(|e| format!("Failed to create MT5_Auto folder: {}", e))?;
     
