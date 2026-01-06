@@ -41,25 +41,25 @@ function Modal({ isOpen, onClose, children }) {
 
 // ----- SESSION DEFINITIONS (in UTC for consistency) -----
 const sessions = [
-  { 
-    name: "New York", 
-    startHour: 14, // 9:30 AM EST = 14:30 UTC
+  {
+    name: "New York",
+    startHour: 14,
     startMinute: 30,
-    endHour: 21, // 4:00 PM EST = 21:00 UTC
+    endHour: 21,
     endMinute: 0,
   },
-  { 
-    name: "London", 
-    startHour: 8, // 8:00 AM GMT = 8:00 UTC
+  {
+    name: "London",
+    startHour: 8,
     startMinute: 0,
-    endHour: 16, // 4:30 PM GMT = 16:30 UTC
+    endHour: 16,
     endMinute: 30,
   },
-  { 
-    name: "Tokyo", 
-    startHour: 0, // 9:00 AM JST = 0:00 UTC (next day)
+  {
+    name: "Tokyo",
+    startHour: 0,
     startMinute: 0,
-    endHour: 9, // 6:00 PM JST = 9:00 UTC
+    endHour: 9,
     endMinute: 0,
   },
 ];
@@ -74,11 +74,11 @@ function utcToLocal(utcHour, utcMinute) {
   const offset = getLocalOffset();
   let localHour = utcHour + offset;
   let localMinute = utcMinute;
-  
+
   // Handle day overflow
   if (localHour >= 24) localHour -= 24;
   if (localHour < 0) localHour += 24;
-  
+
   return `${String(localHour).padStart(2, '0')}:${String(localMinute).padStart(2, '0')}`;
 }
 
@@ -87,9 +87,9 @@ function checkSessionTime(session, status) {
   const now = new Date();
   const currentUTCHour = now.getUTCHours();
   const currentUTCMinute = now.getUTCMinutes();
-  
+
   let targetHour, targetMinute;
-  
+
   if (status === 'started') {
     targetHour = session.startHour;
     targetMinute = session.startMinute;
@@ -105,7 +105,7 @@ function checkSessionTime(session, status) {
     targetHour = session.endHour;
     targetMinute = session.endMinute;
   }
-  
+
   return currentUTCHour === targetHour && currentUTCMinute === targetMinute;
 }
 
@@ -140,6 +140,7 @@ function SettingsPage({ onLockRequest }) {
         }
       } catch (err) {
         console.error('Failed to get Tradelio path:', err);
+        toast.error('❌ Failed to load Tradelio path');
       }
     };
     loadTradeLioPath();
@@ -156,17 +157,17 @@ function SettingsPage({ onLockRequest }) {
       });
 
       if (selected) {
-        const newPath = await invoke('create_tradelio_at_custom_location', { 
-          selectedPath: selected 
+        const newPath = await invoke('create_tradelio_at_custom_location', {
+          selectedPath: selected
         });
         setTradeLioPath(newPath);
-        toast.success('Tradelio folder created successfully', {
+        toast.success('✅ Tradelio folder created successfully', {
           description: newPath
         });
       }
     } catch (err) {
       console.error('Failed to select folder:', err);
-      toast.error('Failed to create Tradelio folder', {
+      toast.error('❌ Failed to create Tradelio folder', {
         description: err.toString()
       });
     }
@@ -178,13 +179,14 @@ function SettingsPage({ onLockRequest }) {
       try {
         const exists = await invoke('check_passcode_exists');
         setPinEnabled(exists);
-        
+
         if (exists) {
           const settings = await invoke('get_lock_settings');
           setLockTimeout(settings.auto_lock_minutes);
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
+        toast.error('❌ Failed to load settings');
       }
     };
     loadSettings();
@@ -195,13 +197,13 @@ function SettingsPage({ onLockRequest }) {
     try {
       if (tradeLioPath) {
         await invoke('open_folder_at_path', { folderPath: tradeLioPath });
-        toast.success('Opened Tradelio folder');
+        toast.success('✅ Opened Tradelio folder');
       } else {
-        toast.warning('Please select a Tradelio location first');
+        toast.warning('⚠️ Please select a Tradelio location first');
       }
     } catch (err) {
       console.error('Failed to open folder:', err);
-      toast.error('Failed to open folder', {
+      toast.error('❌ Failed to open folder', {
         description: err.toString()
       });
     }
@@ -212,7 +214,7 @@ function SettingsPage({ onLockRequest }) {
     if (!enabled) {
       setIsDisablePinModalOpen(true);
     } else {
-      toast.info('Please restart the app to set up a new PIN');
+      toast.info('ℹ️ Please restart the app to set up a new PIN');
     }
   };
 
@@ -231,10 +233,10 @@ function SettingsPage({ onLockRequest }) {
       setPinEnabled(false);
       setIsDisablePinModalOpen(false);
       setDisablePin("");
-      toast.success('PIN lock disabled successfully');
+      toast.success('✅ PIN lock disabled successfully');
     } catch (err) {
       setError(err.toString());
-      toast.error('Failed to disable PIN', {
+      toast.error('❌ Failed to disable PIN', {
         description: err.toString()
       });
     } finally {
@@ -245,13 +247,13 @@ function SettingsPage({ onLockRequest }) {
   // Handle lock timeout change
   const handleTimeoutChange = async (minutes) => {
     setLockTimeout(minutes);
-    
+
     try {
       await invoke('update_lock_settings', { autoLockMinutes: minutes });
-      toast.success('Auto-lock timeout updated');
+      toast.success('✅ Auto-lock timeout updated');
     } catch (err) {
       console.error('Failed to update lock timeout:', err);
-      toast.error('Failed to update lock timeout');
+      toast.error('❌ Failed to update lock timeout');
     }
   };
 
@@ -259,7 +261,7 @@ function SettingsPage({ onLockRequest }) {
   const handleManualLock = () => {
     if (onLockRequest) {
       onLockRequest();
-      toast.info('App locked');
+      toast.info('ℹ️ App locked');
     }
   };
 
@@ -271,7 +273,7 @@ function SettingsPage({ onLockRequest }) {
         name: s.name,
         start: utcToLocal(s.startHour, s.startMinute),
         windDown: utcToLocal(
-          s.endHour, 
+          s.endHour,
           s.endMinute - 30 < 0 ? s.endMinute - 30 + 60 : s.endMinute - 30
         ),
         end: utcToLocal(s.endHour, s.endMinute),
@@ -281,19 +283,18 @@ function SettingsPage({ onLockRequest }) {
       // Check if it's Friday and show weekend rest message
       const now = new Date();
       const dayOfWeek = now.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
-      
+
       if (dayOfWeek === 5 && now.getHours() === 16 && now.getMinutes() === 0) {
         // Friday at 4 PM local time
-        toast.info('Weekend Break', {
-          description: 'Markets closing for the weekend. Time to rest and review your trades. See you Monday! 🌴',
-          duration: 10000
+        toast.info('🌴 Weekend Break', {
+          description: 'Markets closing for the weekend. Time to rest and review your trades. See you Monday!'
         });
       }
 
       // Check every minute for session times (but skip on weekends)
       const interval = setInterval(() => {
         const currentDay = new Date().getDay();
-        
+
         // Skip notifications on Saturday (6) and Sunday (0)
         if (currentDay === 0 || currentDay === 6) {
           return;
@@ -341,7 +342,7 @@ function SettingsPage({ onLockRequest }) {
         });
       }, 60000); // Check every minute
 
-      toast.success('Session notifications enabled', {
+      toast.success('ℹ️ Session notifications enabled', {
         description: `Notifications will use your local time (${userTimezone}). No notifications on weekends.`
       });
 
@@ -355,7 +356,6 @@ function SettingsPage({ onLockRequest }) {
     <div className="max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-10">Settings</h2>
       <div className="space-y-12">
-
         {/* CURRENCY */}
         <section>
           <h3 className="text-lg font-semibold mb-4">Currency</h3>
@@ -414,7 +414,7 @@ function SettingsPage({ onLockRequest }) {
                 )}
               </div>
             </div>
-            
+
             {tradeLioPath ? (
               <div className="bg-zinc-950 rounded px-3 py-2 text-sm text-zinc-400 font-mono">
                 {tradeLioPath}
@@ -547,7 +547,7 @@ function SettingsPage({ onLockRequest }) {
       <Modal isOpen={isDisablePinModalOpen} onClose={() => { setIsDisablePinModalOpen(false); setDisablePin(""); setError(""); }}>
         <h3 className="text-lg font-semibold mb-4">Disable PIN Lock</h3>
         <p className="text-sm text-zinc-400 mb-4">Enter your current PIN to disable the lock</p>
-        
+
         <input
           type="password"
           placeholder="Enter 6-digit PIN"
