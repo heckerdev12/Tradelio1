@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import {
   History,
   FileSpreadsheet,
@@ -17,66 +18,6 @@ import {
   Eye, 
   EyeOff
 } from 'lucide-react';
-
-// Mock Tauri invoke for web preview - replace with real Tauri in production
-const invoke = window.__TAURI__
-  ? window.__TAURI__.invoke
-  : async (cmd, args) => {
-      console.log('Mock Tauri call:', cmd, args);
-      const storage = window.localStorage;
-
-      switch (cmd) {
-        case 'add_account': {
-          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
-          const newAccount = { ...args.account, id: Date.now() };
-          accounts.push(newAccount);
-          storage.setItem('accounts', JSON.stringify(accounts));
-          return newAccount;
-        }
-
-        case 'get_all_accounts':
-          return JSON.parse(storage.getItem('accounts') || '[]');
-
-        case 'update_account': {
-          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
-          const updatedAccounts = accounts.map(acc =>
-            acc.id === args.account.id ? args.account : acc
-          );
-          storage.setItem('accounts', JSON.stringify(updatedAccounts));
-          return args.account;
-        }
-
-        case 'update_account_balance': {
-          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
-          const updatedAccounts = accounts.map(acc =>
-            acc.id === args.accountId ? { ...acc, balance: args.newBalance } : acc
-          );
-          storage.setItem('accounts', JSON.stringify(updatedAccounts));
-          return { success: true };
-        }
-
-        case 'add_transaction': {
-          const transactions = JSON.parse(storage.getItem('transactions') || '[]');
-          const newTransaction = { ...args.transaction, id: Date.now() };
-          transactions.push(newTransaction);
-          storage.setItem('transactions', JSON.stringify(transactions));
-          return newTransaction;
-        }
-
-        case 'get_all_transactions':
-          return JSON.parse(storage.getItem('transactions') || '[]');
-
-        case 'delete_account': {
-          const accounts = JSON.parse(storage.getItem('accounts') || '[]');
-          const filteredAccounts = accounts.filter(acc => acc.id !== args.accountId);
-          storage.setItem('accounts', JSON.stringify(filteredAccounts));
-          return { success: true };
-        }
-
-        default:
-          return null;
-      }
-    };
     
 // ----- CONFIRMATION MODAL COMPONENT -----
 function ConfirmationModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Delete", cancelText = "Cancel" }) {
