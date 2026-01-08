@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import {
-  FaTachometerAlt,
-  FaChartLine,
-  FaChartPie,
-  FaCog,
-  FaUsers,
-  FaRegCalendarAlt,
-  FaBars,
-  FaTimes,
-  FaNewspaper,
-  FaUserCircle
-} from 'react-icons/fa';
+  LayoutDashboard,
+  Users,
+  TrendingUp,
+  PieChart,
+  Newspaper,
+  Calendar,
+  UserCircle,
+  Settings,
+  Menu,
+  Clock,
+  X
+} from 'lucide-react';
 import { Store } from "@tauri-apps/plugin-store";
 import { loadProfile } from "../api/profile";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -27,14 +28,15 @@ async function getStore() {
 
 function Sidebar({ activeTab, setActiveTab }) {
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: <FaTachometerAlt /> },
-    { id: 'accounts', label: 'Accounts', icon: <FaUsers /> },
-    { id: 'trades', label: 'Trades', icon: <FaChartLine /> },
-    { id: 'analytics', label: 'Analytics', icon: <FaChartPie /> },
-    { id: 'news', label: 'News', icon: <FaNewspaper /> },
-    { id: 'calendar', label: 'Calendar', icon: <FaRegCalendarAlt /> },
-    { id: 'profile', label: 'Profile', icon: <FaUserCircle /> },
-    { id: 'settings', label: 'Settings', icon: <FaCog /> },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'accounts', label: 'Accounts', icon: Users },
+    { id: 'trades', label: 'Trades', icon: TrendingUp },
+    { id: 'analytics', label: 'Analytics', icon: PieChart },
+    { id: 'news', label: 'News', icon: Newspaper },
+    { id: 'calendar', label: 'Calendar', icon: Calendar },
+    { id: 'markethours', label: 'Market', icon: Clock },
+    { id: 'profile', label: 'Profile', icon: UserCircle },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   const [collapsed, setCollapsed] = useState(false);
@@ -84,25 +86,28 @@ function Sidebar({ activeTab, setActiveTab }) {
       <div className="flex items-center justify-between p-4 border-b border-zinc-800">
         {!collapsed && <h1 className="text-xl font-bold">Tradelio</h1>}
         <button onClick={() => setCollapsed(!collapsed)} className="text-zinc-400 hover:text-white text-lg">
-          {collapsed ? <FaBars /> : <FaTimes />}
+          {collapsed ? <Menu size={20} /> : <X size={20} />}
         </button>
       </div>
 
       {/* Tabs */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors
-              ${activeTab === tab.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-800/50 hover:text-white'}
-            `}
-            title={collapsed ? tab.label : ''}
-          >
-            <span className="text-lg flex-shrink-0">{tab.icon}</span>
-            {!collapsed && <span className="ml-3 text-sm font-medium">{tab.label}</span>}
-          </button>
-        ))}
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center w-full p-3 rounded-lg transition-colors
+                ${activeTab === tab.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-800/50 hover:text-white'}
+              `}
+              title={collapsed ? tab.label : ''}
+            >
+              <Icon size={18} className="flex-shrink-0" />
+              {!collapsed && <span className="ml-3 text-sm font-medium">{tab.label}</span>}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Profile Section */}
@@ -117,7 +122,7 @@ function Sidebar({ activeTab, setActiveTab }) {
               />
             ) : (
               <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
-                <FaUserCircle className="text-sm text-zinc-600" />
+                <UserCircle size={16} className="text-zinc-600" />
               </div>
             )}
             {!collapsed && (
@@ -128,7 +133,6 @@ function Sidebar({ activeTab, setActiveTab }) {
           </div>
         </div>
       </div>
-
     </div>
   );
 }
