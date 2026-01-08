@@ -16,6 +16,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AccountsPage from "./pages/AccountsPage";
 import CalendarPage from "./pages/CalendarPage";
 import ProfilePage from "./pages/ProfilePage";
+import MarketHoursPage from "./pages/MarketHoursPage";
 import NewsPage from "./pages/NewsPage";
 
 // ---------------------------------------------------------------------------
@@ -118,6 +119,13 @@ function MainApp({ onLockRequest, initialTab }) {
         <CachedPage isActive={activeTab === "calendar"}>
           <div className="p-6 animate-fadeIn">
             <CalendarPage />
+          </div>
+        </CachedPage>
+
+        {/* Sessions Page */}
+        <CachedPage isActive={activeTab === "markethours"}>
+          <div className="p-6 animate-fadeIn">
+            <MarketHoursPage />
           </div>
         </CachedPage>
 
