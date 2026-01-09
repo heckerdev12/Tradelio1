@@ -34,7 +34,7 @@ function Sidebar({ activeTab, setActiveTab }) {
     { id: 'analytics', label: 'Analytics', icon: PieChart },
     { id: 'news', label: 'News', icon: Newspaper },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'markethours', label: 'Market', icon: Clock },
+    { id: 'markethours', label: 'Market Hours', icon: Clock },
     { id: 'profile', label: 'Profile', icon: UserCircle },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
