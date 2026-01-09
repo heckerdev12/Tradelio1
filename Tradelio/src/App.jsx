@@ -271,7 +271,18 @@ function App() {
   if (!passcodeExists) {
     return (
       <>
-        <Toaster position="top-center" richColors theme="dark" />
+        <Toaster 
+          position="top-right"
+          expand={false}
+          closeButton
+          toastOptions={{
+            style: {
+              background: '#18181b',
+              border: '1px solid #27272a',
+              color: '#fff',
+            },
+          }}
+        />
         <PasscodeSetup onComplete={handlePasscodeSetupComplete} />
       </>
     );
@@ -281,7 +292,18 @@ function App() {
   if (isLocked) {
     return (
       <>
-        <Toaster position="top-center" richColors theme="dark" />
+        <Toaster 
+          position="top-right"
+          expand={false}
+          closeButton
+          toastOptions={{
+            style: {
+              background: '#18181b',
+              border: '1px solid #27272a',
+              color: '#fff',
+            },
+          }}
+        />
         <LockScreen onUnlock={handleUnlock} />
       </>
     );
@@ -290,7 +312,22 @@ function App() {
   // Show main app
   return (
     <>
-      <Toaster position="top-center" richColors theme="dark" />
+      <Toaster 
+        position="top-center"
+        expand={false}
+        closeButton={false}
+        toastOptions={{
+          style: {
+            background: '#18181b',
+            border: '1px solid #27272a',
+            color: '#fff',
+          },
+          classNames: {
+            title: 'text-white',
+            description: 'text-white',
+          },
+        }}
+      />
       <MainApp onLockRequest={handleLock} initialTab={getInitialTab()} />
     </>
   );
