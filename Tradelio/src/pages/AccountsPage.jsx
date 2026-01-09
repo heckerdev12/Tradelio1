@@ -19,6 +19,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import DatePicker from '../components/DatePicker';
+import { showToast } from '../utils/toastConfig';
 
 // ----- CONFIRMATION MODAL COMPONENT -----
 function ConfirmationModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Delete", cancelText = "Cancel" }) {
@@ -76,7 +77,7 @@ function DepositModal({ isOpen, onClose, accounts, onDeposit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedAccount || !amount || !date) {
-      alert('Please fill in all fields');
+      showToast.warning('Missing Information', 'Please fill in all required fields');
       return;
     }
 
@@ -98,13 +99,14 @@ function DepositModal({ isOpen, onClose, accounts, onDeposit }) {
       });
 
       onDeposit(savedTransaction, account.id, newBalance);
+      showToast.success('Deposit Successful', `$${parseFloat(amount).toFixed(2)} added to ${account.name}`);
       setSelectedAccount('');
       setAmount('');
       setDate('');
       onClose();
     } catch (error) {
       console.error('Failed to add deposit:', error);
-      alert('Failed to add deposit. Please try again.');
+      showToast.error('Deposit Failed', error.message || 'Please try again');
     }
   };
 
@@ -198,7 +200,7 @@ function WithdrawalModal({ isOpen, onClose, accounts, onWithdraw }) {
     }
 
     if (parseFloat(amount) > selectedAccountData.balance) {
-      alert('Insufficient balance');
+      showToast.error('Insufficient Balance', `Available: $${selectedAccountData.balance.toFixed(2)}`);
       return;
     }
 
@@ -219,13 +221,14 @@ function WithdrawalModal({ isOpen, onClose, accounts, onWithdraw }) {
       });
 
       onWithdraw(savedTransaction, selectedAccountData.id, newBalance);
+      showToast.success('Withdrawal Successful', `$${parseFloat(amount).toFixed(2)} withdrawn from ${selectedAccountData.name}`);
       setSelectedAccount('');
       setAmount('');
       setDate('');
       onClose();
     } catch (error) {
       console.error('Failed to add withdrawal:', error);
-      alert('Failed to add withdrawal. Please try again.');
+      showToast.error('Withdrawal Failed', error.message || 'Please try again');
     }
   };
 
@@ -325,17 +328,17 @@ function TransferModal({ isOpen, onClose, accounts, onTransfer }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!fromAccount || !toAccount || !amount || !date) {
-      alert('Please fill in all fields');
+      showToast.error('Please fill in all fields');
       return;
     }
 
     if (fromAccount === toAccount) {
-      alert('Cannot transfer to the same account');
+      showToast.error('Invalid Transfer', 'Cannot transfer to the same account');;
       return;
     }
 
     if (parseFloat(amount) > fromAccountData.balance) {
-      alert('Insufficient balance');
+      showToast.error('Insufficient balance');
       return;
     }
 
@@ -372,6 +375,7 @@ function TransferModal({ isOpen, onClose, accounts, onTransfer }) {
       });
 
       onTransfer(fromAccountData.id, newFromBalance, toAccountData.id, newToBalance);
+      showToast.success('Transfer Complete', `$${parseFloat(amount).toFixed(2)} transferred from ${fromAccountData.name} to ${toAccountData.name}`);
       setFromAccount('');
       setToAccount('');
       setAmount('');
@@ -379,7 +383,7 @@ function TransferModal({ isOpen, onClose, accounts, onTransfer }) {
       onClose();
     } catch (error) {
       console.error('Failed to transfer:', error);
-      alert('Failed to transfer funds. Please try again.');
+      showToast.error('Transfer Failed', error.message || 'Please try again');
     }
   };
 
@@ -506,7 +510,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.brokerName || !formData.accountNumber || !formData.initialBalance) {
-      alert('Please fill in all required fields');
+      showToast.warning('Missing Information', 'Please fill in all required fields');
       return;
     }
 
@@ -526,7 +530,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
     try {
       const savedAccount = await invoke('add_account', { account: newAccount });
       onAddAccount(savedAccount);
-
+      showToast.success('Account Created', `${newAccount.broker} account added successfully`);
       setFormData({
         brokerName: '',
         accountNumber: '',
@@ -541,7 +545,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
       onClose();
     } catch (error) {
       console.error('Failed to add account:', error);
-      alert('Failed to add account. Please try again.');
+      showToast.error('Failed to add account. Please try again.');
     }
   };
 
@@ -758,10 +762,12 @@ function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
     try {
       const savedAccount = await invoke('update_account', { account: updatedAccount });
       onUpdateAccount(savedAccount);
+      showToast.success('Account Updated', `${updatedAccount.broker} updated successfully`);
       onClose();
+      showToast.success('Account Created', `${newAccount.broker} account added successfully`);
     } catch (error) {
       console.error('Failed to update account:', error);
-      alert('Failed to update account. Please try again.');
+      showToast.error('Failed to Add Account', error.message || 'Please try again');
     }
   };
 
@@ -956,7 +962,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
 
   const exportToExcel = () => {
     if (filteredTransactions.length === 0) {
-      alert("No transactions to export!");
+      showToast.warning('No Data', 'No transactions to export');
       return;
     }
 
@@ -977,12 +983,12 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
     link.click();
     document.body.removeChild(link);
 
-    alert("Excel file exported successfully!");
+    showToast.success('Export Complete', 'Transaction history downloaded successfully');
   };
 
   const exportToHTML = () => {
     if (filteredTransactions.length === 0) {
-      alert("No transactions to export!");
+      showToast.error("No transactions to export!");
       return;
     }
 
@@ -1148,8 +1154,7 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    alert("HTML file exported successfully!");
+    showToast.success('Export Complete', 'Transaction history downloaded successfully');
   };
 
   const handleExport = () => {
@@ -1409,7 +1414,7 @@ export default function App() {
       setAccounts(prev => prev.filter(acc => acc.id !== accountId));
     } catch (error) {
       console.error('Failed to delete account:', error);
-      alert('Failed to delete account. Please try again.');
+      showToast.error('Failed to delete account. Please try again.');
     }
   };
 
@@ -1592,6 +1597,7 @@ export default function App() {
         onConfirm={async () => {
           if (accountToDelete) {
             await handleDeleteAccount(accountToDelete.id);
+            showToast.success('Account Deleted', `The account "${accountToDelete.broker}" was deleted successfully.`);
             setIsDeleteConfirmOpen(false);
             setAccountToDelete(null);
           }
