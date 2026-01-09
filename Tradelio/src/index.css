@@ -102,13 +102,17 @@ input:-moz-autofill:focus {
   color: #ffffff !important;
 }
 
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+/* Force Sonner toast text to be white */
+[data-sonner-toast] [data-description] {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: #ffffff !important;
+}
+
+[data-sonner-toast] {
+  background: #18181b !important;
+  border: 1px solid #27272a !important;
 }
