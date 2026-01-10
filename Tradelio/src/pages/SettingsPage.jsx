@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FaFolderOpen, FaExternalLinkAlt } from "react-icons/fa";
-import { toast } from "sonner";
+import { showToast } from '../utils/toastConfig';
 
 // ----- SWITCH COMPONENT -----
 function Switch({ enabled, onChange }) {
@@ -39,76 +39,6 @@ function Modal({ isOpen, onClose, children }) {
   );
 }
 
-// ----- SESSION DEFINITIONS (in UTC for consistency) -----
-const sessions = [
-  {
-    name: "New York",
-    startHour: 14,
-    startMinute: 30,
-    endHour: 21,
-    endMinute: 0,
-  },
-  {
-    name: "London",
-    startHour: 8,
-    startMinute: 0,
-    endHour: 16,
-    endMinute: 30,
-  },
-  {
-    name: "Tokyo",
-    startHour: 0,
-    startMinute: 0,
-    endHour: 9,
-    endMinute: 0,
-  },
-];
-
-// Get local timezone offset in hours
-function getLocalOffset() {
-  return -new Date().getTimezoneOffset() / 60;
-}
-
-// Convert UTC time to local time
-function utcToLocal(utcHour, utcMinute) {
-  const offset = getLocalOffset();
-  let localHour = utcHour + offset;
-  let localMinute = utcMinute;
-
-  // Handle day overflow
-  if (localHour >= 24) localHour -= 24;
-  if (localHour < 0) localHour += 24;
-
-  return `${String(localHour).padStart(2, '0')}:${String(localMinute).padStart(2, '0')}`;
-}
-
-// Check if current UTC time matches session time (within 1 minute)
-function checkSessionTime(session, status) {
-  const now = new Date();
-  const currentUTCHour = now.getUTCHours();
-  const currentUTCMinute = now.getUTCMinutes();
-
-  let targetHour, targetMinute;
-
-  if (status === 'started') {
-    targetHour = session.startHour;
-    targetMinute = session.startMinute;
-  } else if (status === 'winding_down') {
-    // 30 minutes before close
-    targetHour = session.endHour;
-    targetMinute = session.endMinute - 30;
-    if (targetMinute < 0) {
-      targetMinute += 60;
-      targetHour -= 1;
-    }
-  } else if (status === 'closed') {
-    targetHour = session.endHour;
-    targetMinute = session.endMinute;
-  }
-
-  return currentUTCHour === targetHour && currentUTCMinute === targetMinute;
-}
-
 // ----- SETTINGS PAGE -----
 function SettingsPage({ onLockRequest }) {
   const [currency, setCurrency] = useState("USD");
@@ -116,19 +46,10 @@ function SettingsPage({ onLockRequest }) {
   const [tradeLioPath, setTradeLioPath] = useState("");
   const [pinEnabled, setPinEnabled] = useState(false);
   const [lockTimeout, setLockTimeout] = useState(5);
-  const [sessionNotifications, setSessionNotifications] = useState(false);
-  const [localSessions, setLocalSessions] = useState([]);
-  const [userTimezone, setUserTimezone] = useState("");
   const [isDisablePinModalOpen, setIsDisablePinModalOpen] = useState(false);
   const [disablePin, setDisablePin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Detect user's timezone on mount
-  useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    setUserTimezone(tz);
-  }, []);
 
   // Load Tradelio path on mount
   useEffect(() => {
@@ -140,7 +61,7 @@ function SettingsPage({ onLockRequest }) {
         }
       } catch (err) {
         console.error('Failed to get Tradelio path:', err);
-        toast.error('❌ Failed to load Tradelio path');
+        showToast.error('Path Error', 'Failed to load Tradelio path');
       }
     };
     loadTradeLioPath();
@@ -161,15 +82,11 @@ function SettingsPage({ onLockRequest }) {
           selectedPath: selected
         });
         setTradeLioPath(newPath);
-        toast.success('✅ Tradelio folder created successfully', {
-          description: newPath
-        });
+        showToast.success('Folder Created', newPath);
       }
     } catch (err) {
       console.error('Failed to select folder:', err);
-      toast.error('❌ Failed to create Tradelio folder', {
-        description: err.toString()
-      });
+      showToast.error('Failed to Create Folder', err.toString());
     }
   };
 
@@ -186,7 +103,7 @@ function SettingsPage({ onLockRequest }) {
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
-        toast.error('❌ Failed to load settings');
+        showToast.error('Settings Error', 'Failed to load settings');
       }
     };
     loadSettings();
@@ -197,15 +114,13 @@ function SettingsPage({ onLockRequest }) {
     try {
       if (tradeLioPath) {
         await invoke('open_folder_at_path', { folderPath: tradeLioPath });
-        toast.success('✅ Opened Tradelio folder');
+        showToast.success('Folder Opened', 'Tradelio folder opened successfully');
       } else {
-        toast.warning('⚠️ Please select a Tradelio location first');
+        showToast.warning('No Location Set', 'Please select a Tradelio location first');
       }
     } catch (err) {
       console.error('Failed to open folder:', err);
-      toast.error('❌ Failed to open folder', {
-        description: err.toString()
-      });
+      showToast.error('Failed to Open Folder', err.toString());
     }
   };
 
@@ -214,7 +129,7 @@ function SettingsPage({ onLockRequest }) {
     if (!enabled) {
       setIsDisablePinModalOpen(true);
     } else {
-      toast.info('ℹ️ Please restart the app to set up a new PIN');
+      showToast.info('Restart Required', 'Please restart the app to set up a new PIN');
     }
   };
 
@@ -233,12 +148,10 @@ function SettingsPage({ onLockRequest }) {
       setPinEnabled(false);
       setIsDisablePinModalOpen(false);
       setDisablePin("");
-      toast.success('✅ PIN lock disabled successfully');
+      showToast.success('PIN Disabled', 'Security lock has been disabled');
     } catch (err) {
       setError(err.toString());
-      toast.error('❌ Failed to disable PIN', {
-        description: err.toString()
-      });
+      showToast.error('Failed to Disable PIN', err.toString());
     } finally {
       setLoading(false);
     }
@@ -250,10 +163,10 @@ function SettingsPage({ onLockRequest }) {
 
     try {
       await invoke('update_lock_settings', { autoLockMinutes: minutes });
-      toast.success('✅ Auto-lock timeout updated');
+      showToast.success('Settings Updated', `Auto-lock set to ${minutes} minute${minutes !== 1 ? 's' : ''}`);
     } catch (err) {
       console.error('Failed to update lock timeout:', err);
-      toast.error('❌ Failed to update lock timeout');
+      showToast.error('Update Failed', 'Failed to update auto-lock timeout');
     }
   };
 
@@ -261,96 +174,9 @@ function SettingsPage({ onLockRequest }) {
   const handleManualLock = () => {
     if (onLockRequest) {
       onLockRequest();
-      toast.info('ℹ️ App locked');
+      showToast.info('App Locked', 'Your app has been secured');
     }
   };
-
-  // ----- SESSION NOTIFICATIONS SCHEDULER -----
-  useEffect(() => {
-    if (sessionNotifications) {
-      // Convert sessions to local time for display
-      const converted = sessions.map((s) => ({
-        name: s.name,
-        start: utcToLocal(s.startHour, s.startMinute),
-        windDown: utcToLocal(
-          s.endHour,
-          s.endMinute - 30 < 0 ? s.endMinute - 30 + 60 : s.endMinute - 30
-        ),
-        end: utcToLocal(s.endHour, s.endMinute),
-      }));
-      setLocalSessions(converted);
-
-      // Check if it's Friday and show weekend rest message
-      const now = new Date();
-      const dayOfWeek = now.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
-
-      if (dayOfWeek === 5 && now.getHours() === 16 && now.getMinutes() === 0) {
-        // Friday at 4 PM local time
-        toast.info('🌴 Weekend Break', {
-          description: 'Markets closing for the weekend. Time to rest and review your trades. See you Monday!'
-        });
-      }
-
-      // Check every minute for session times (but skip on weekends)
-      const interval = setInterval(() => {
-        const currentDay = new Date().getDay();
-
-        // Skip notifications on Saturday (6) and Sunday (0)
-        if (currentDay === 0 || currentDay === 6) {
-          return;
-        }
-
-        sessions.forEach(async (session) => {
-          // Check for session start
-          if (checkSessionTime(session, 'started')) {
-            try {
-              await invoke('send_session_alert', {
-                sessionName: session.name,
-                status: 'started'
-              });
-              console.log(`${session.name} session started notification sent`);
-            } catch (err) {
-              console.error('Failed to send notification:', err);
-            }
-          }
-
-          // Check for winding down (30 min before close)
-          if (checkSessionTime(session, 'winding_down')) {
-            try {
-              await invoke('send_session_alert', {
-                sessionName: session.name,
-                status: 'winding_down'
-              });
-              console.log(`${session.name} session winding down notification sent`);
-            } catch (err) {
-              console.error('Failed to send notification:', err);
-            }
-          }
-
-          // Check for session close
-          if (checkSessionTime(session, 'closed')) {
-            try {
-              await invoke('send_session_alert', {
-                sessionName: session.name,
-                status: 'closed'
-              });
-              console.log(`${session.name} session closed notification sent`);
-            } catch (err) {
-              console.error('Failed to send notification:', err);
-            }
-          }
-        });
-      }, 60000); // Check every minute
-
-      toast.success('ℹ️ Session notifications enabled', {
-        description: `Notifications will use your local time (${userTimezone}). No notifications on weekends.`
-      });
-
-      return () => clearInterval(interval);
-    } else {
-      setLocalSessions([]);
-    }
-  }, [sessionNotifications, userTimezone]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -491,54 +317,6 @@ function SettingsPage({ onLockRequest }) {
                 </div>
               )}
             </div>
-          </div>
-        </section>
-
-        {/* NOTIFICATIONS */}
-        <section>
-          <h3 className="text-lg font-semibold mb-4">Notifications</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Session Notifications</p>
-                <p className="text-sm text-zinc-500">
-                  Get notified when trading sessions start and end
-                </p>
-                {userTimezone && (
-                  <p className="text-xs text-zinc-600 mt-1">
-                    Your timezone: {userTimezone}
-                  </p>
-                )}
-              </div>
-              <Switch enabled={sessionNotifications} onChange={setSessionNotifications} />
-            </div>
-
-            {sessionNotifications && (
-              <div className="grid grid-cols-3 gap-3 pt-2">
-                {localSessions.map((s) => (
-                  <div key={s.name} className="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
-                    <p className="text-sm font-semibold text-white mb-3">{s.name}</p>
-                    <div className="text-xs text-zinc-400 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-500">●</span>
-                        <span className="text-zinc-500">Opens:</span>
-                        <span className="text-white ml-auto">{s.start}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-orange-500">●</span>
-                        <span className="text-zinc-500">Winding down:</span>
-                        <span className="text-white ml-auto">{s.windDown}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-red-500">●</span>
-                        <span className="text-zinc-500">Closes:</span>
-                        <span className="text-white ml-auto">{s.end}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </section>
       </div>
