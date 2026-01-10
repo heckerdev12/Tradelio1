@@ -4,7 +4,7 @@ mod passcode;
 mod profile;
 mod accounts;
 mod folders;
-mod notifications;
+mod sessions;
 
 use passcode::PasscodeState;
 use accounts::*;
@@ -115,10 +115,12 @@ pub fn run() {
             folders::open_folder_at_path,  
             folders::create_tradelio_at_custom_location,
 
-            // Notifications
-            notifications::send_test_notification,
-            notifications::send_trade_notification,
-            notifications::send_session_alert,
+            // Trading sessions toast
+            sessions::send_test_notification,
+            sessions::send_trade_notification,
+            sessions::send_session_alert,
+            sessions::get_session_notifications_enabled,
+            sessions::set_session_notifications_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
