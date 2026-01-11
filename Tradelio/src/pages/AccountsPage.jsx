@@ -494,7 +494,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
     accountNickname: '',
     accountType: 'Live',
     accountPlan: 'Standard',
-    initialBalance: '',
     leverage: '1:200',
     tradingTerminal: 'MT5'
   });
@@ -506,7 +505,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.brokerName || !formData.accountNumber || !formData.initialBalance) {
+    if (!formData.brokerName || !formData.accountNumber) {
       showToast.warning('Missing Information', 'Please fill in all required fields');
       return;
     }
@@ -518,7 +517,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
       account_nickname: formData.accountNickname,
       account_type: formData.accountType,
       account_plan: formData.accountPlan,
-      balance: parseFloat(formData.initialBalance),
       leverage: formData.leverage,
       trading_terminal: formData.tradingTerminal,
       created_at: new Date().toISOString()
@@ -534,7 +532,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
         accountNickname: '',
         accountType: 'Live',
         accountPlan: 'Standard',
-        initialBalance: '',
         leverage: '1:200',
         tradingTerminal: 'MT5'
       });
@@ -637,22 +634,6 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
-              Initial Balance <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              name="initialBalance"
-              value={formData.initialBalance}
-              onChange={handleChange}
-              placeholder="10000"
-              step="0.01"
-              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-zinc-400 block mb-2 font-medium">
               Leverage
             </label>
             <select
@@ -669,24 +650,23 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
               <option value="1:3000">1:3000</option>
             </select>
           </div>
+          <div>
+            <label className="text-sm text-zinc-400 block mb-2 font-medium">
+              Trading platform
+            </label>
+            <select
+              name="tradingTerminal"
+              value={formData.tradingTerminal}
+              onChange={handleChange}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
+            >
+              <option value="MT4">MT4</option>
+              <option value="MT5">MT5</option>
+              <option value="C-Trader">C-Trader</option>
+            </select>
+          </div>
         </div>
-
-        <div>
-          <label className="text-sm text-zinc-400 block mb-2 font-medium">
-            Trading platform
-          </label>
-          <select
-            name="tradingTerminal"
-            value={formData.tradingTerminal}
-            onChange={handleChange}
-            className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none"
-          >
-            <option value="MT4">MT4</option>
-            <option value="MT5">MT5</option>
-            <option value="C-Trader">C-Trader</option>
-          </select>
-        </div>
-
+        
         <div className="flex gap-3 pt-2">
           <button
             type="button"
@@ -715,7 +695,6 @@ function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
     accountNickname: account?.account_nickname || '',
     accountType: account?.account_type || 'Live',
     accountPlan: account?.account_plan || 'Standard',
-    initialBalance: account?.balance || '',
     leverage: account?.leverage || '1:200',
     tradingTerminal: account?.trading_terminal || 'MT5',
   });
@@ -728,7 +707,6 @@ function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
         accountNickname: account.account_nickname,
         accountType: account.account_type,
         accountPlan: account.account_plan,
-        initialBalance: account.balance,
         leverage: account.leverage,
         tradingTerminal: account.trading_terminal,
       });
@@ -750,7 +728,6 @@ function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
       account_nickname: formData.accountNickname,
       account_type: formData.accountType,
       account_plan: formData.accountPlan,
-      balance: parseFloat(formData.initialBalance),
       leverage: formData.leverage,
       trading_terminal: formData.tradingTerminal,
       created_at: account.created_at,
@@ -858,22 +835,6 @@ function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm text-zinc-400 block mb-2 font-medium">
-              Initial Balance <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              name="initialBalance"
-              value={formData.initialBalance}
-              onChange={handleChange}
-              placeholder="10000"
-              step="0.01"
-              className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-lg w-full text-white focus:border-white focus:outline-none placeholder:text-zinc-600"
-              required
-            />
-          </div>
-
           <div>
             <label className="text-sm text-zinc-400 block mb-2 font-medium">
               Leverage
