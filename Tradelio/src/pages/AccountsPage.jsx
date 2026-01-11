@@ -1269,49 +1269,51 @@ export default function App() {
   const [selectedAccountForTransaction, setSelectedAccountForTransaction] = useState(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState(null);
-  const [balanceVisible, setBalanceVisible] = useState(false);
-  const [inactivityTimer, setInactivityTimer] = useState(null);
-
-  // Auto-hide balance after 30 seconds of inactivity
-  useEffect(() => {
-    const resetTimer = () => {
-      // Clear existing timer
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-      }
-
-      // Set new timer - hide balance after 30 seconds
-      const timer = setTimeout(() => {
-        setBalanceVisible(false);
-      }, 10000); // 30 seconds
-
-      setInactivityTimer(timer);
-    };
-
-    // Activity events to reset timer
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    
-    activityEvents.forEach(event => {
-      document.addEventListener(event, resetTimer);
-    });
-
-    // Start initial timer
-    resetTimer();
-
-    // Cleanup
-    return () => {
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-      }
-      activityEvents.forEach(event => {
-        document.removeEventListener(event, resetTimer);
-      });
-    };
-  }, [balanceVisible]); // Re-run when balance visibility changes
+  const [balanceVisibility, setBalanceVisibility] = useState({});
+  const [inactivityTimers, setInactivityTimers] = useState({});
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const resetTimer = () => {
+      // Clear all timers
+      Object.keys(balanceVisibility).forEach(accountId => {
+        if (inactivityTimers[accountId]) {
+          clearTimeout(inactivityTimers[accountId]);
+        }
+      });
+
+      // Set new timers for visible balances
+      const newTimers = {};
+      Object.entries(balanceVisibility).forEach(([accountId, isVisible]) => {
+        if (isVisible) {
+          newTimers[accountId] = setTimeout(() => {
+            setBalanceVisibility(prev => ({
+              ...prev,
+              [accountId]: false
+            }));
+          }, 10000); // 10 seconds
+        }
+      });
+      setInactivityTimers(newTimers);
+    };
+
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    activityEvents.forEach(event => {
+      document.addEventListener(event, resetTimer);
+    });
+
+    resetTimer();
+
+    return () => {
+      Object.values(inactivityTimers).forEach(timer => clearTimeout(timer));
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [balanceVisibility]);
 
   const loadData = async () => {
     try {
@@ -1436,14 +1438,19 @@ export default function App() {
 
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-3xl font-bold text-green-500">
-                    {balanceVisible ? `$${account.balance.toFixed(2)}` : '••••••••'}
+                    {balanceVisibility[account.id] ? `$${account.balance.toFixed(2)}` : '••••••••'}
                   </div>
                   <button
-                    onClick={() => setBalanceVisible(!balanceVisible)}
+                    onClick={() => {
+                      setBalanceVisibility(prev => ({
+                        ...prev,
+                        [account.id]: !prev[account.id]
+                      }));
+                    }}
                     className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
-                    title={balanceVisible ? "Hide balance" : "Show balance"}
+                    title={balanceVisibility[account.id] ? "Hide balance" : "Show balance"}
                   >
-                    {balanceVisible ? <Eye size={20} /> : <EyeOff size={20} />}
+                    {balanceVisibility[account.id] ? <Eye size={20} /> : <EyeOff size={20} />}
                   </button>
                 </div>
 
