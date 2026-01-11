@@ -517,6 +517,8 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
       account_nickname: formData.accountNickname,
       account_type: formData.accountType,
       account_plan: formData.accountPlan,
+      balance: 0,  // ADD THIS
+      total_deposits: 0, 
       leverage: formData.leverage,
       trading_terminal: formData.tradingTerminal,
       created_at: new Date().toISOString()
@@ -728,6 +730,8 @@ function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
       account_nickname: formData.accountNickname,
       account_type: formData.accountType,
       account_plan: formData.accountPlan,
+      balance: account.balance,  // ADD THIS
+      total_deposits: account.total_deposits,
       leverage: formData.leverage,
       trading_terminal: formData.tradingTerminal,
       created_at: account.created_at,
@@ -738,7 +742,6 @@ function EditAccountModal({ isOpen, onClose, account, onUpdateAccount }) {
       onUpdateAccount(savedAccount);
       showToast.success('Account Updated', `${updatedAccount.broker} updated successfully`);
       onClose();
-      showToast.success('Account Created', `${newAccount.broker} account added successfully`);
     } catch (error) {
       console.error('Failed to update account:', error);
       showToast.error('Failed to Add Account', error.message || 'Please try again');
