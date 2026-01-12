@@ -9,57 +9,78 @@ edition = "2021"
 name = "tradelio_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Build-time helpers for Tauri (generates bindings, bundling, etc.)
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# Core Tauri
+# -----------------------
+# Tauri core & plugins
+# -----------------------
+# Core runtime for building desktop apps with Tauri
 tauri = { version = "2", features = ["tray-icon", "protocol-asset"] }
-tauri-plugin-opener = "2"
-tauri-plugin-store = "2"
-tauri-plugin-dialog = "2"
 
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# Official/community plugins for common desktop features
+tauri-plugin-opener = "2"        # open external links / files with system handlers
+tauri-plugin-store = "2"         # simple key/value store plugin
+tauri-plugin-dialog = "2"        # show native dialogs (alerts, confirmations, file pickers)
+tauri-plugin-notification = "2.0.0" # native notifications
+tauri-plugin-shell = "2"         # run shell commands (careful with security)
 
-# Security - Password & Key Management
-bcrypt = "0.15"
-keyring = "2.3"
+# -----------------------
+# Serialization / Data formats
+# -----------------------
+serde = { version = "1", features = ["derive"] } # serde derive for (de)serializing structs
+serde_json = "1"                                 # read/write JSON
 
-# Async runtime
-tokio = { version = "1", features = ["sync"] }
+# -----------------------
+# Security: hashing, keyring, encryption
+# -----------------------
+bcrypt = "0.15"            # password hashing (bcrypt) - for storing/verifying credentials
+keyring = "2.3"            # OS keyring access for securely storing secrets
+aes-gcm = "0.10"           # AES-GCM authenticated encryption (use for encrypting DB fields)
 
-# Database with bundled SQLite (no external dependencies!)
+# -----------------------
+# Storage / Database
+# -----------------------
+# rusqlite with bundled SQLite (no external SQLite dependency required)
 rusqlite = { version = "0.31", features = ["bundled"] }
 
-# AES-GCM encryption for database fields
-aes-gcm = "0.10"
+# -----------------------
+# Encoding / Randomness / IDs
+# -----------------------
+base64 = "0.21"            # base64 encode/decode (store encrypted blobs safely)
+rand = "0.8"               # RNG for keys/nonces (use secure RNGs from this crate)
+uuid = { version = "1.0", features = ["v4", "serde"] } # UUID generation (v4) + serde support
 
-# Base64 encoding for storing encrypted data
-base64 = "0.21"
+# -----------------------
+# Async runtime & Networking
+# -----------------------
+tokio = { version = "1", features = ["sync"] }  # async runtime used by reqwest and other async code
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] } # HTTP client with rustls TLS
 
-# Random number generation for encryption keys/nonces
-rand = "0.8"
+# -----------------------
+# Date / Time
+# -----------------------
+chrono = { version = "0.4", features = ["serde"] } # datetime handling + serde support
 
-# Date/Time handling for timestamps
-chrono = { version = "0.4", features = ["serde"] }
+# -----------------------
+# Error handling
+# -----------------------
+anyhow = "1.0"   # ergonomic error handling for application-level errors
+thiserror = "1.0" # derive-friendly error types
 
-# Better error handling
-anyhow = "1.0"
-thiserror = "1.0"
+# -----------------------
+# Export / Reporting / Templating
+# -----------------------
+csv = "1.3"      # CSV writer for Excel/CSV exports
+tera = "1.19"    # templating for HTML reports
+html_to_pdf_lib = "=0.1.2" # html to pdf converstion
 
-# UUID generation for unique identifiers
-uuid = { version = "1.0", features = ["v4", "serde"] }
+# -----------------------
+# Utilities / Platform helpers
+# -----------------------
+dirs = "5.0"     # locate platform-specific directories (config, data, cache)
 
-# HTTP requests for fetching RSS feeds
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-
-dirs = "5.0"
-#data export
-csv = "1.3"
-tera = "1.19"
-wkhtmltopdf = "0.4"  # Lighter than Chrome, still good quality
-tauri-plugin-notification = "2.0.0"
-tauri-plugin-shell = "2"
 [features]
 default = []
