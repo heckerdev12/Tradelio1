@@ -14,7 +14,8 @@ pub struct TradingAccount {
     pub account_type: String,
     pub account_plan: String,
     pub balance: f64, // Current balance (affected by trades and deposits/withdrawals)
-    pub total_deposits: f64, // Total deposits only (never affected by trades)
+    pub total_deposits: f64, // Total deposits only (never decreases)
+    pub total_withdrawals: f64, // NEW: Total withdrawals only (never decreases)
     pub leverage: String,
     pub trading_terminal: String,
     pub created_at: String,
@@ -24,8 +25,10 @@ pub struct TradingAccount {
 pub struct Transaction {
     pub id: Option<i64>,
     pub account_name: String,
-    pub transaction_type: String, // "deposit" or "withdrawal"
-    pub amount: f64,
+    pub transaction_type: String, // "deposit", "withdrawal", "transfer_in", "transfer_out"
+    pub amount: f64, // Always positive
+    pub description: Option<String>, // NEW: Optional note/memo
+    pub related_transaction_id: Option<i64>, // NEW: For linking transfers
     pub date: String,
     pub created_at: String,
 }
@@ -36,7 +39,7 @@ fn get_db(app: &AppHandle) -> Result<Connection> {
     path.push("tradelio.db");
     let conn = Connection::open(&path)?;
 
-    // Create accounts table with total_deposits field
+    // Create accounts table with total_deposits and total_withdrawals fields
     conn.execute(
         "CREATE TABLE IF NOT EXISTS accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,6 +51,7 @@ fn get_db(app: &AppHandle) -> Result<Connection> {
             account_plan TEXT NOT NULL,
             balance REAL NOT NULL,
             total_deposits REAL NOT NULL DEFAULT 0,
+            total_withdrawals REAL NOT NULL DEFAULT 0,
             leverage TEXT NOT NULL,
             trading_terminal TEXT NOT NULL,
             created_at TEXT NOT NULL
@@ -78,6 +82,35 @@ fn get_db(app: &AppHandle) -> Result<Connection> {
         )?;
     }
 
+    // NEW: Migrate to add total_withdrawals if needed
+    let has_total_withdrawals: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('accounts') WHERE name='total_withdrawals'",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .map(|count| count > 0)
+        .unwrap_or(false);
+
+    if !has_total_withdrawals {
+        println!("Migrating database: adding total_withdrawals column");
+        conn.execute(
+            "ALTER TABLE accounts ADD COLUMN total_withdrawals REAL NOT NULL DEFAULT 0",
+            [],
+        )?;
+        // Calculate total_withdrawals from existing transactions
+        conn.execute(
+            "UPDATE accounts 
+             SET total_withdrawals = (
+                 SELECT COALESCE(SUM(amount), 0) 
+                 FROM transactions 
+                 WHERE transactions.account_name = accounts.name 
+                 AND transactions.transaction_type IN ('withdrawal', 'transfer_out')
+             )",
+            [],
+        )?;
+    }
+
     // Create transactions table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS transactions (
@@ -85,11 +118,49 @@ fn get_db(app: &AppHandle) -> Result<Connection> {
             account_name TEXT NOT NULL,
             transaction_type TEXT NOT NULL,
             amount REAL NOT NULL,
+            description TEXT,
+            related_transaction_id INTEGER,
             date TEXT NOT NULL,
             created_at TEXT NOT NULL
         )",
         [],
     )?;
+
+    // NEW: Migrate transactions to add description column if needed
+    let has_description: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('transactions') WHERE name='description'",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .map(|count| count > 0)
+        .unwrap_or(false);
+
+    if !has_description {
+        println!("Migrating database: adding description column to transactions");
+        conn.execute(
+            "ALTER TABLE transactions ADD COLUMN description TEXT",
+            [],
+        )?;
+    }
+
+    // NEW: Migrate transactions to add related_transaction_id column if needed
+    let has_related_id: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('transactions') WHERE name='related_transaction_id'",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .map(|count| count > 0)
+        .unwrap_or(false);
+
+    if !has_related_id {
+        println!("Migrating database: adding related_transaction_id column to transactions");
+        conn.execute(
+            "ALTER TABLE transactions ADD COLUMN related_transaction_id INTEGER",
+            [],
+        )?;
+    }
 
     Ok(conn)
 }
@@ -106,8 +177,8 @@ pub fn add_account(
     })?;
 
     conn.execute(
-        "INSERT INTO accounts (name, broker, account_number, account_nickname, account_type, account_plan, balance, total_deposits, leverage, trading_terminal, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        "INSERT INTO accounts (name, broker, account_number, account_nickname, account_type, account_plan, balance, total_deposits, total_withdrawals, leverage, trading_terminal, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             account.name,
             account.broker,
@@ -117,6 +188,7 @@ pub fn add_account(
             account.account_plan,
             account.balance,
             account.total_deposits,
+            account.total_withdrawals,
             account.leverage,
             account.trading_terminal,
             account.created_at,
@@ -144,7 +216,7 @@ pub fn get_all_accounts(app: AppHandle) -> Result<Vec<TradingAccount>, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, broker, account_number, account_nickname, account_type, account_plan, balance, total_deposits, leverage, trading_terminal, created_at 
+            "SELECT id, name, broker, account_number, account_nickname, account_type, account_plan, balance, total_deposits, total_withdrawals, leverage, trading_terminal, created_at 
              FROM accounts 
              ORDER BY created_at DESC"
         )
@@ -162,9 +234,10 @@ pub fn get_all_accounts(app: AppHandle) -> Result<Vec<TradingAccount>, String> {
                 account_plan: row.get(6)?,
                 balance: row.get(7)?,
                 total_deposits: row.get(8)?,
-                leverage: row.get(9)?,
-                trading_terminal: row.get(10)?,
-                created_at: row.get(11)?,
+                total_withdrawals: row.get(9)?,
+                leverage: row.get(10)?,
+                trading_terminal: row.get(11)?,
+                created_at: row.get(12)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -187,7 +260,7 @@ pub fn update_account_balance(
         e.to_string()
     })?;
 
-    // Only update balance, not total_deposits (this is for trade P&L)
+    // Only update balance, not total_deposits or total_withdrawals (this is for trade P&L)
     conn.execute(
         "UPDATE accounts SET balance = ?1 WHERE id = ?2",
         params![new_balance, account_id],
@@ -236,14 +309,21 @@ pub fn add_transaction(
         e.to_string()
     })?;
 
+    // Validate amount is positive
+    if transaction.amount <= 0.0 {
+        return Err("Transaction amount must be positive".to_string());
+    }
+
     // Add the transaction record
     conn.execute(
-        "INSERT INTO transactions (account_name, transaction_type, amount, date, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO transactions (account_name, transaction_type, amount, description, related_transaction_id, date, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             transaction.account_name,
             transaction.transaction_type,
             transaction.amount,
+            transaction.description,
+            transaction.related_transaction_id,
             transaction.date,
             transaction.created_at,
         ],
@@ -255,30 +335,187 @@ pub fn add_transaction(
 
     let id = conn.last_insert_rowid();
 
-    // Update both balance and total_deposits for deposits/withdrawals
-    let amount_change = match transaction.transaction_type.as_str() {
-        "deposit" => transaction.amount,
-        "withdrawal" => -transaction.amount,
-        _ => 0.0,
-    };
-
-    conn.execute(
-        "UPDATE accounts 
-         SET balance = balance + ?1, 
-             total_deposits = total_deposits + ?1 
-         WHERE name = ?2",
-        params![amount_change, transaction.account_name],
-    )
-    .map_err(|e| {
-        eprintln!("Database update error: {}", e);
-        e.to_string()
-    })?;
+    // FIXED: Update balance and appropriate total field based on transaction type
+    match transaction.transaction_type.as_str() {
+        "deposit" | "transfer_in" => {
+            // Increase balance and total_deposits
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance + ?1, 
+                     total_deposits = total_deposits + ?1 
+                 WHERE name = ?2",
+                params![transaction.amount, transaction.account_name],
+            )
+            .map_err(|e| {
+                eprintln!("Database update error: {}", e);
+                e.to_string()
+            })?;
+        }
+        "withdrawal" | "transfer_out" => {
+            // Decrease balance and increase total_withdrawals
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance - ?1, 
+                     total_withdrawals = total_withdrawals + ?1 
+                 WHERE name = ?2",
+                params![transaction.amount, transaction.account_name],
+            )
+            .map_err(|e| {
+                eprintln!("Database update error: {}", e);
+                e.to_string()
+            })?;
+        }
+        _ => {
+            return Err(format!("Invalid transaction type: {}", transaction.transaction_type));
+        }
+    }
 
     let mut new_transaction = transaction.clone();
     new_transaction.id = Some(id);
 
     println!("Transaction added successfully with ID: {}", id);
     Ok(new_transaction)
+}
+
+// NEW: Helper function to add a transfer between two accounts
+#[tauri::command]
+pub fn add_transfer(
+    app: AppHandle,
+    from_account: String,
+    to_account: String,
+    amount: f64,
+    description: Option<String>,
+    date: String,
+    created_at: String,
+) -> Result<(Transaction, Transaction), String> {
+    println!("Adding transfer: {} from {} to {}", amount, from_account, to_account);
+    
+    if amount <= 0.0 {
+        return Err("Transfer amount must be positive".to_string());
+    }
+
+    let conn = get_db(&app).map_err(|e| {
+        eprintln!("Database error: {}", e);
+        e.to_string()
+    })?;
+
+    // Start a transaction
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| e.to_string())?;
+
+    // Add transfer_out transaction
+    let transfer_out = Transaction {
+        id: None,
+        account_name: from_account.clone(),
+        transaction_type: "transfer_out".to_string(),
+        amount,
+        description: description.clone(),
+        related_transaction_id: None,
+        date: date.clone(),
+        created_at: created_at.clone(),
+    };
+
+    conn.execute(
+        "INSERT INTO transactions (account_name, transaction_type, amount, description, related_transaction_id, date, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            transfer_out.account_name,
+            transfer_out.transaction_type,
+            transfer_out.amount,
+            transfer_out.description,
+            transfer_out.related_transaction_id,
+            transfer_out.date,
+            transfer_out.created_at,
+        ],
+    )
+    .map_err(|e| {
+        conn.execute("ROLLBACK", []).ok();
+        e.to_string()
+    })?;
+
+    let out_id = conn.last_insert_rowid();
+
+    // Add transfer_in transaction with related_transaction_id
+    let transfer_in = Transaction {
+        id: None,
+        account_name: to_account.clone(),
+        transaction_type: "transfer_in".to_string(),
+        amount,
+        description: description.clone(),
+        related_transaction_id: Some(out_id),
+        date: date.clone(),
+        created_at: created_at.clone(),
+    };
+
+    conn.execute(
+        "INSERT INTO transactions (account_name, transaction_type, amount, description, related_transaction_id, date, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            transfer_in.account_name,
+            transfer_in.transaction_type,
+            transfer_in.amount,
+            transfer_in.description,
+            transfer_in.related_transaction_id,
+            transfer_in.date,
+            transfer_in.created_at,
+        ],
+    )
+    .map_err(|e| {
+        conn.execute("ROLLBACK", []).ok();
+        e.to_string()
+    })?;
+
+    let in_id = conn.last_insert_rowid();
+
+    // Update the transfer_out transaction with the related_transaction_id
+    conn.execute(
+        "UPDATE transactions SET related_transaction_id = ?1 WHERE id = ?2",
+        params![in_id, out_id],
+    )
+    .map_err(|e| {
+        conn.execute("ROLLBACK", []).ok();
+        e.to_string()
+    })?;
+
+    // Update from_account: decrease balance, increase total_withdrawals
+    conn.execute(
+        "UPDATE accounts 
+         SET balance = balance - ?1, 
+             total_withdrawals = total_withdrawals + ?1 
+         WHERE name = ?2",
+        params![amount, from_account],
+    )
+    .map_err(|e| {
+        conn.execute("ROLLBACK", []).ok();
+        e.to_string()
+    })?;
+
+    // Update to_account: increase balance, increase total_deposits
+    conn.execute(
+        "UPDATE accounts 
+         SET balance = balance + ?1, 
+             total_deposits = total_deposits + ?1 
+         WHERE name = ?2",
+        params![amount, to_account],
+    )
+    .map_err(|e| {
+        conn.execute("ROLLBACK", []).ok();
+        e.to_string()
+    })?;
+
+    // Commit the transaction
+    conn.execute("COMMIT", [])
+        .map_err(|e| e.to_string())?;
+
+    let mut final_out = transfer_out;
+    final_out.id = Some(out_id);
+    final_out.related_transaction_id = Some(in_id);
+
+    let mut final_in = transfer_in;
+    final_in.id = Some(in_id);
+
+    println!("Transfer completed successfully");
+    Ok((final_out, final_in))
 }
 
 #[tauri::command]
@@ -290,7 +527,7 @@ pub fn get_all_transactions(app: AppHandle) -> Result<Vec<Transaction>, String> 
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, account_name, transaction_type, amount, date, created_at 
+            "SELECT id, account_name, transaction_type, amount, description, related_transaction_id, date, created_at 
              FROM transactions 
              ORDER BY date DESC"
         )
@@ -303,8 +540,10 @@ pub fn get_all_transactions(app: AppHandle) -> Result<Vec<Transaction>, String> 
                 account_name: row.get(1)?,
                 transaction_type: row.get(2)?,
                 amount: row.get(3)?,
-                date: row.get(4)?,
-                created_at: row.get(5)?,
+                description: row.get(4)?,
+                related_transaction_id: row.get(5)?,
+                date: row.get(6)?,
+                created_at: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -327,7 +566,7 @@ pub fn get_transactions_by_account(
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, account_name, transaction_type, amount, date, created_at 
+            "SELECT id, account_name, transaction_type, amount, description, related_transaction_id, date, created_at 
              FROM transactions 
              WHERE account_name = ?1 
              ORDER BY date DESC"
@@ -341,8 +580,10 @@ pub fn get_transactions_by_account(
                 account_name: row.get(1)?,
                 transaction_type: row.get(2)?,
                 amount: row.get(3)?,
-                date: row.get(4)?,
-                created_at: row.get(5)?,
+                description: row.get(4)?,
+                related_transaction_id: row.get(5)?,
+                date: row.get(6)?,
+                created_at: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -367,8 +608,8 @@ pub fn update_account(
         "UPDATE accounts 
          SET name = ?1, broker = ?2, account_number = ?3, account_nickname = ?4, 
              account_type = ?5, account_plan = ?6, balance = ?7, total_deposits = ?8, 
-             leverage = ?9, trading_terminal = ?10, created_at = ?11 
-         WHERE id = ?12",
+             total_withdrawals = ?9, leverage = ?10, trading_terminal = ?11, created_at = ?12 
+         WHERE id = ?13",
         params![
             account.name,
             account.broker,
@@ -378,6 +619,7 @@ pub fn update_account(
             account.account_plan,
             account.balance,
             account.total_deposits,
+            account.total_withdrawals,
             account.leverage,
             account.trading_terminal,
             account.created_at,
@@ -407,7 +649,7 @@ pub fn update_transaction(
     // Get the old transaction to reverse its effect
     let old_transaction: Transaction = conn
         .query_row(
-            "SELECT id, account_name, transaction_type, amount, date, created_at 
+            "SELECT id, account_name, transaction_type, amount, description, related_transaction_id, date, created_at 
              FROM transactions 
              WHERE id = ?1",
             params![transaction.id.unwrap()],
@@ -417,38 +659,54 @@ pub fn update_transaction(
                     account_name: row.get(1)?,
                     transaction_type: row.get(2)?,
                     amount: row.get(3)?,
-                    date: row.get(4)?,
-                    created_at: row.get(5)?,
+                    description: row.get(4)?,
+                    related_transaction_id: row.get(5)?,
+                    date: row.get(6)?,
+                    created_at: row.get(7)?,
                 })
             },
         )
         .map_err(|e| e.to_string())?;
 
-    // Reverse the old transaction's effect
-    let old_amount_change = match old_transaction.transaction_type.as_str() {
-        "deposit" => -old_transaction.amount,
-        "withdrawal" => old_transaction.amount,
-        _ => 0.0,
-    };
-
-    conn.execute(
-        "UPDATE accounts 
-         SET balance = balance + ?1, 
-             total_deposits = total_deposits + ?1 
-         WHERE name = ?2",
-        params![old_amount_change, old_transaction.account_name],
-    )
-    .map_err(|e| e.to_string())?;
+    // FIXED: Reverse the old transaction's effect properly
+    match old_transaction.transaction_type.as_str() {
+        "deposit" | "transfer_in" => {
+            // Reverse: decrease balance and total_deposits
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance - ?1, 
+                     total_deposits = total_deposits - ?1 
+                 WHERE name = ?2",
+                params![old_transaction.amount, old_transaction.account_name],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        "withdrawal" | "transfer_out" => {
+            // Reverse: increase balance and decrease total_withdrawals
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance + ?1, 
+                     total_withdrawals = total_withdrawals - ?1 
+                 WHERE name = ?2",
+                params![old_transaction.amount, old_transaction.account_name],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        _ => {}
+    }
 
     // Update the transaction
     conn.execute(
         "UPDATE transactions 
-         SET account_name = ?1, transaction_type = ?2, amount = ?3, date = ?4, created_at = ?5 
-         WHERE id = ?6",
+         SET account_name = ?1, transaction_type = ?2, amount = ?3, description = ?4, 
+             related_transaction_id = ?5, date = ?6, created_at = ?7 
+         WHERE id = ?8",
         params![
             transaction.account_name,
             transaction.transaction_type,
             transaction.amount,
+            transaction.description,
+            transaction.related_transaction_id,
             transaction.date,
             transaction.created_at,
             transaction.id.unwrap(),
@@ -459,22 +717,106 @@ pub fn update_transaction(
         e.to_string()
     })?;
 
-    // Apply the new transaction's effect
-    let new_amount_change = match transaction.transaction_type.as_str() {
-        "deposit" => transaction.amount,
-        "withdrawal" => -transaction.amount,
-        _ => 0.0,
-    };
-
-    conn.execute(
-        "UPDATE accounts 
-         SET balance = balance + ?1, 
-             total_deposits = total_deposits + ?1 
-         WHERE name = ?2",
-        params![new_amount_change, transaction.account_name],
-    )
-    .map_err(|e| e.to_string())?;
+    // FIXED: Apply the new transaction's effect properly
+    match transaction.transaction_type.as_str() {
+        "deposit" | "transfer_in" => {
+            // Increase balance and total_deposits
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance + ?1, 
+                     total_deposits = total_deposits + ?1 
+                 WHERE name = ?2",
+                params![transaction.amount, transaction.account_name],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        "withdrawal" | "transfer_out" => {
+            // Decrease balance and increase total_withdrawals
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance - ?1, 
+                     total_withdrawals = total_withdrawals + ?1 
+                 WHERE name = ?2",
+                params![transaction.amount, transaction.account_name],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        _ => {}
+    }
 
     println!("Transaction updated successfully");
     Ok(transaction)
+}
+
+// NEW: Delete transaction
+#[tauri::command]
+pub fn delete_transaction(
+    app: AppHandle,
+    transaction_id: i64,
+) -> Result<(), String> {
+    println!("Deleting transaction with ID: {}", transaction_id);
+    let conn = get_db(&app).map_err(|e| {
+        eprintln!("Database error: {}", e);
+        e.to_string()
+    })?;
+
+    // Get the transaction to reverse its effect
+    let transaction: Transaction = conn
+        .query_row(
+            "SELECT id, account_name, transaction_type, amount, description, related_transaction_id, date, created_at 
+             FROM transactions 
+             WHERE id = ?1",
+            params![transaction_id],
+            |row| {
+                Ok(Transaction {
+                    id: row.get(0)?,
+                    account_name: row.get(1)?,
+                    transaction_type: row.get(2)?,
+                    amount: row.get(3)?,
+                    description: row.get(4)?,
+                    related_transaction_id: row.get(5)?,
+                    date: row.get(6)?,
+                    created_at: row.get(7)?,
+                })
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Reverse the transaction's effect
+    match transaction.transaction_type.as_str() {
+        "deposit" | "transfer_in" => {
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance - ?1, 
+                     total_deposits = total_deposits - ?1 
+                 WHERE name = ?2",
+                params![transaction.amount, transaction.account_name],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        "withdrawal" | "transfer_out" => {
+            conn.execute(
+                "UPDATE accounts 
+                 SET balance = balance + ?1, 
+                     total_withdrawals = total_withdrawals - ?1 
+                 WHERE name = ?2",
+                params![transaction.amount, transaction.account_name],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        _ => {}
+    }
+
+    // Delete the transaction
+    conn.execute(
+        "DELETE FROM transactions WHERE id = ?1",
+        params![transaction_id],
+    )
+    .map_err(|e| {
+        eprintln!("Database delete error: {}", e);
+        e.to_string()
+    })?;
+
+    println!("Transaction deleted successfully");
+    Ok(())
 }
