@@ -81,7 +81,7 @@ function DepositModal({ isOpen, onClose, accounts, onDeposit }) {
     const account = accounts.find(a => a.id.toString() === selectedAccount);
     const transaction = {
       account_name: account.name,
-      transaction_type: 'Deposit',
+      transaction_type: 'deposit',
       amount: parseFloat(amount),
       date,
       created_at: new Date().toISOString()
@@ -203,7 +203,7 @@ function WithdrawalModal({ isOpen, onClose, accounts, onWithdraw }) {
 
     const transaction = {
       account_name: selectedAccountData.name,
-      transaction_type: 'Withdrawal',
+      transaction_type: 'withdrawal',
       amount: parseFloat(amount),
       date,
       created_at: new Date().toISOString()
@@ -342,7 +342,7 @@ function TransferModal({ isOpen, onClose, accounts, onTransfer }) {
     try {
       const withdrawalTransaction = {
         account_name: fromAccountData.name,
-        transaction_type: 'Transfer Out',
+        transaction_type: 'transfer Out',
         amount: parseFloat(amount),
         date,
         created_at: new Date().toISOString()
@@ -350,7 +350,7 @@ function TransferModal({ isOpen, onClose, accounts, onTransfer }) {
 
       const depositTransaction = {
         account_name: toAccountData.name,
-        transaction_type: 'Transfer In',
+        transaction_type: 'transfer In',
         amount: parseFloat(amount),
         date,
         created_at: new Date().toISOString()
@@ -519,6 +519,7 @@ function AddAccountModal({ isOpen, onClose, onAddAccount }) {
       account_plan: formData.accountPlan,
       balance: 0,  // ADD THIS
       total_deposits: 0, 
+      total_withdrawals: 0,
       leverage: formData.leverage,
       trading_terminal: formData.tradingTerminal,
       created_at: new Date().toISOString()
@@ -921,30 +922,71 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
 
   const filteredTransactions = filterTransactions();
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filteredTransactions.length === 0) {
       showToast.warning('No Data', 'No transactions to export');
       return;
     }
 
-    const headers = "Account Name,Type,Amount,Date\n";
-    const rows = filteredTransactions.map(t =>
-      `"${t.account_name}","${t.transaction_type}",${t.amount},"${t.date}"`
-    ).join("\n");
+    try {
+      // Get initial balance if a specific account is selected
+      let initialBalance = 0;
+      if (selectedAccount !== "all") {
+        initialBalance = await invoke('get_account_balance_at_date', {
+          accountName: selectedAccount,
+          date: startDate || "1900-01-01"
+        });
+      }
 
-    const csvContent = headers + rows;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
+      // CSV headers with new columns
+      const headers = "Date,Account Name,Type,Amount,Balance After\n";
+      
+      let runningBalance = initialBalance;
+      const rows = [];
 
-    link.setAttribute("href", url);
-    link.setAttribute("download", `transactions_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      // Add initial balance row if specific account selected
+      if (selectedAccount !== "all" && startDate) {
+        rows.push(`"${startDate}","${selectedAccount}","Initial Balance","${initialBalance.toFixed(2)}","${initialBalance.toFixed(2)}"`);
+      }
 
-    showToast.success('Export Complete', 'Transaction history downloaded successfully');
+      // Process each transaction
+      filteredTransactions.forEach(t => {
+        // Format amount with negative sign for withdrawals/transfer_out
+        const isNegative = t.transaction_type === 'withdrawal' || t.transaction_type === 'transfer_out';
+        const displayAmount = isNegative ? `-${t.amount.toFixed(2)}` : t.amount.toFixed(2);
+        
+        // Calculate balance after this transaction (only for single account)
+        if (selectedAccount !== "all") {
+          runningBalance += isNegative ? -t.amount : t.amount;
+        }
+        
+        const balanceAfter = selectedAccount !== "all" ? runningBalance.toFixed(2) : "N/A";
+        
+        rows.push(`"${t.date}","${t.account_name}","${t.transaction_type}","${displayAmount}","${balanceAfter}"`);
+      });
+
+      // Add final balance row if specific account selected
+      if (selectedAccount !== "all" && endDate) {
+        rows.push(`"${endDate}","${selectedAccount}","Final Balance","${runningBalance.toFixed(2)}","${runningBalance.toFixed(2)}"`);
+      }
+
+      const csvContent = headers + rows.join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute("href", url);
+      link.setAttribute("download", `transactions_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast.success('Export Complete', 'Transaction history downloaded successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      showToast.error('Export Failed', error.toString());
+    }
   };
 
   const exportToHTML = () => {
@@ -954,156 +996,181 @@ function TransactionHistoryModal({ isOpen, onClose, transactions = [], accounts 
     }
 
     const totalDeposits = filteredTransactions
-      .filter(t => t.transaction_type === "Deposit")
+      .filter(t => t.transaction_type === "deposit")
       .reduce((sum, t) => sum + t.amount, 0);
 
     const totalWithdrawals = filteredTransactions
-      .filter(t => t.transaction_type === "Withdrawal")
+      .filter(t => t.transaction_type === "withdrawal")
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const htmlContent = `
+    const formatMoney = (v) => `$${v.toFixed(2)}`;
+const today = new Date().toLocaleDateString();
+
+const summaryCard = (title, value, className = "") => `
+  <div class="card">
+    <span>${title}</span>
+    <strong class="${className}">${value}</strong>
+  </div>
+`;
+
+const transactionRow = (t) => `
+  <tr>
+    <td>${t.date}</td>
+    <td>${t.account_name}</td>
+    <td>${t.transaction_type}</td>
+    <td class="${t.transaction_type.toLowerCase()}">
+      ${t.transaction_type === "deposit" ? "+" : "-"}${formatMoney(t.amount)}
+    </td>
+  </tr>
+`;
+
+const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Transaction History Report</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1000px;
-            margin: 40px auto;
-            padding: 20px;
-            background: #000;
-            color: #fff;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #18181b;
-            border: 1px solid #27272a;
-            border-radius: 10px;
-        }
-        .summary {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .summary-card {
-            background: #18181b;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #27272a;
-            text-align: center;
-        }
-        .summary-card h3 {
-            margin: 0 0 10px 0;
-            color: #a1a1aa;
-            font-size: 14px;
-            text-transform: uppercase;
-        }
-        .summary-card p {
-            margin: 0;
-            font-size: 24px;
-            font-weight: bold;
-        }
-        .deposits { color: #22c55e; }
-        .withdrawals { color: #ef4444; }
-        .net { color: #fff; }
-        table {
-            width: 100%;
-            background: #18181b;
-            border-collapse: collapse;
-            border: 1px solid #27272a;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        th {
-            background: #000;
-            color: white;
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            border-bottom: 1px solid #27272a;
-        }
-        td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #27272a;
-        }
-        tr:hover {
-            background: #27272a;
-        }
-        .deposit {
-            color: #22c55e;
-            font-weight: bold;
-        }
-        .withdrawal {
-            color: #ef4444;
-            font-weight: bold;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding: 20px;
-            color: #a1a1aa;
-            font-size: 12px;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Transaction Report</title>
+
+<style>
+:root {
+  --bg: #000000;
+  --panel: #18181b;
+  --border: #27272a;
+  --muted: #a1a1aa;
+  --green: #22c55e;
+  --red: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: #ffffff;
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 30px;
+}
+
+.header {
+  text-align: center;
+}
+
+.header h1 {
+  margin-bottom: 10px;
+}
+
+.header p {
+  margin: 4px 0;
+  color: var(--muted);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.card {
+  text-align: center;
+}
+
+.card span {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 24px;
+}
+
+.deposit {
+  color: var(--green);
+}
+
+.withdrawal {
+  color: var(--red);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+th {
+  background: #000;
+  font-weight: 600;
+}
+
+th, td {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 30px;
+}
+</style>
 </head>
+
 <body>
-    <div class="header">
-        <h1>📊 Transaction History Report</h1>
-        <p>Generated on ${new Date().toLocaleDateString()}</p>
-        <p>Account: ${selectedAccount === "all" ? "All Accounts" : selectedAccount}</p>
-        ${startDate || endDate ? `<p>Period: ${startDate || 'Start'} to ${endDate || 'End'}</p>` : ''}
-    </div>
 
-    <div class="summary">
-        <div class="summary-card">
-            <h3>Total Deposits</h3>
-            <p class="deposits">$${totalDeposits.toFixed(2)}</p>
-        </div>
-        <div class="summary-card">
-            <h3>Total Withdrawals</h3>
-            <p class="withdrawals">$${totalWithdrawals.toFixed(2)}</p>
-        </div>
-        <div class="summary-card">
-            <h3>Net Change</h3>
-            <p class="net">$${(totalDeposits - totalWithdrawals).toFixed(2)}</p>
-        </div>
-    </div>
+<div class="panel header">
+  <h1>📊 Transaction History Report</h1>
+  <p>Generated on ${today}</p>
+  <p>Account: ${selectedAccount === "all" ? "All Accounts" : selectedAccount}</p>
+  ${startDate || endDate ? `<p>Period: ${startDate || "Start"} – ${endDate || "End"}</p>` : ""}
+</div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Account Name</th>
-                <th>Type</th>
-                <th>Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${filteredTransactions.map(t => `
-                <tr>
-                    <td>${t.date}</td>
-                    <td>${t.account_name}</td>
-                    <td>${t.transaction_type}</td>
-                    <td class="${t.transaction_type.toLowerCase()}">
-                        ${t.transaction_type === "Deposit" ? "+" : "-"}$${t.amount.toFixed(2)}
-                    </td>
-                </tr>
-            `).join('')}
-        </tbody>
-    </table>
+<div class="panel summary">
+  ${summaryCard("Total Deposits", formatMoney(totalDeposits), "deposit")}
+  ${summaryCard("Total Withdrawals", formatMoney(totalWithdrawals), "withdrawal")}
+  ${summaryCard("Net Change", formatMoney(totalDeposits - totalWithdrawals))}
+</div>
 
-    <div class="footer">
-        <p>Total Transactions: ${filteredTransactions.length}</p>
-        <p>Trading Account Management System</p>
-    </div>
+<table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Account</th>
+      <th>Type</th>
+      <th>Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${filteredTransactions.map(transactionRow).join("")}
+  </tbody>
+</table>
+
+<div class="footer">
+  <p>Total Transactions: ${filteredTransactions.length}</p>
+  <p>© ${new Date().getFullYear()} Tradelio</p>
+</div>
+
 </body>
 </html>
-    `;
+`;
+
 
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const link = document.createElement("a");
