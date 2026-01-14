@@ -820,3 +820,35 @@ pub fn delete_transaction(
     println!("Transaction deleted successfully");
     Ok(())
 }
+#[tauri::command]
+pub fn get_account_balance_at_date(
+    app: AppHandle,
+    account_name: String,
+    date: String,
+) -> Result<f64, String> {
+    let conn = get_db(&app).map_err(|e| e.to_string())?;
+    
+    // Get current balance
+    let current_balance: f64 = conn.query_row(
+        "SELECT balance FROM accounts WHERE name = ?1",
+        params![account_name],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    
+    // Get all transactions after the specified date
+    let transactions_after: f64 = conn.query_row(
+        "SELECT 
+            COALESCE(SUM(CASE 
+                WHEN transaction_type IN ('deposit', 'transfer_in') THEN amount
+                WHEN transaction_type IN ('withdrawal', 'transfer_out') THEN -amount
+                ELSE 0
+            END), 0)
+         FROM transactions 
+         WHERE account_name = ?1 AND date > ?2",
+        params![account_name, date],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    
+    // Balance at date = current balance - transactions after that date
+    Ok(current_balance - transactions_after)
+}
