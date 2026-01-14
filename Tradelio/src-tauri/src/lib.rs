@@ -107,6 +107,7 @@ pub fn run() {
             get_transactions_by_account,
             update_account,
             update_transaction,
+            get_account_balance_at_date,
             
             // Folders
             folders::get_tradelio_path,
