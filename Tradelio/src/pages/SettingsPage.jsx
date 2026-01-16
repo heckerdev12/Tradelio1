@@ -252,29 +252,6 @@ function SettingsPage({ onLockRequest }) {
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <p className="font-medium">EA Manual Export (MT4)</p>
-              </div>
-              <p className="text-sm text-zinc-500 ml-5">
-                Manually export your MT4 EA history and place files in:{" "}
-                <span className="text-zinc-300 font-mono">Tradelio/EA_Manual/</span>
-              </p>
-            </div>
-
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <p className="font-medium">MT5 Automatic Export</p>
-              </div>
-              <p className="text-sm text-zinc-500 ml-5">
-                MT5 data will be automatically synced to:{" "}
-                <span className="text-zinc-300 font-mono">Tradelio/MT5_Auto/</span>
-              </p>
-            </div>
-          </div>
         </section>
 
         {/* SECURITY */}
