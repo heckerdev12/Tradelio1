@@ -18,6 +18,7 @@ import CalendarPage from "./pages/CalendarPage";
 import ProfilePage from "./pages/ProfilePage";
 import MarketHoursPage from "./pages/MarketHoursPage";
 import NewsPage from "./pages/NewsPage";
+import CodesPage from "./pages/CodesPage";
 
 // ---------------------------------------------------------------------------
 // Splash Screen
@@ -140,6 +141,13 @@ function MainApp({ onLockRequest, initialTab }) {
         <CachedPage isActive={activeTab === "profile"}>
           <div className="p-6 animate-fadeIn">
             <ProfilePage />
+          </div>
+        </CachedPage> 
+
+        {/* Codes Page */}
+        <CachedPage isActive={activeTab === "codes"}>
+          <div className="p-6 animate-fadeIn">
+            <CodesPage onLockRequest={onLockRequest} />
           </div>
         </CachedPage>
 
