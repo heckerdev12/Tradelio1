@@ -2,62 +2,13 @@ import React, { useState } from 'react';
 import { Upload, Plus, Filter, ChevronDown, Calendar, Pencil } from 'lucide-react';
 import Modal from '../components/Modal';
 import DatePicker from '../components/DatePicker';
+import { showToast } from '../utils/toastConfig';
 
 function TradesPage() {
   const [selectedAccount, setSelectedAccount] = useState('standard-cent-account');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [trades, setTrades] = useState([
-    {
-      id: 1,
-      symbol: 'AAPL',
-      type: 'BUY',
-      quantity: 10,
-      price: 175.50,
-      date: '2024-12-08',
-      profit: 125.00,
-      account: 'standard-cent-account',
-      session: 'New York',
-      lotSize: 1.0,
-      stopLoss: 170.00,
-      takeProfit: 180.00,
-      swap: 0.50,
-      commission: 2.00
-    },
-    {
-      id: 2,
-      symbol: 'GOOGL',
-      type: 'SELL',
-      quantity: 5,
-      price: 140.25,
-      date: '2024-12-07',
-      profit: -50.00,
-      account: 'standard-account',
-      session: 'London',
-      lotSize: 0.5,
-      stopLoss: 145.00,
-      takeProfit: 135.00,
-      swap: 0.25,
-      commission: 1.00
-    },
-    {
-      id: 3,
-      symbol: 'MSFT',
-      type: 'BUY',
-      quantity: 15,
-      price: 380.00,
-      date: '2024-12-06',
-      profit: 220.00,
-      account: 'standard-cent-account',
-      session: 'Tokyo',
-      lotSize: 1.5,
-      stopLoss: 375.00,
-      takeProfit: 390.00,
-      swap: 0.75,
-      commission: 3.00
-    },
-  ]);
-
+  const [trades, setTrades] = useState([]);
   const [showAddTradeModal, setShowAddTradeModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showEditTradeModal, setShowEditTradeModal] = useState(false);
@@ -425,35 +376,52 @@ function TradesPage() {
 
       {/* Add Trade Modal */}
       <Modal isOpen={showAddTradeModal} onClose={() => setShowAddTradeModal(false)} maxWidth="max-w-2xl">
-        <div className="p-6">
+        <div className="p-0">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-white">Add New Trade</h3>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Account</label>
-              <select
-                value={newTrade.account}
-                onChange={(e) => setNewTrade({...newTrade, account: e.target.value})}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {accounts.map(account => (
-                  <option key={account.id} value={account.id}>{account.name}</option>
-                ))}
-              </select>
+              <div className="flex flex-col md:flex-row gap-4">
+                
+                {/* Account */}
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">
+                    Account
+                  </label>
+                  <select
+                    value={newTrade.account}
+                    onChange={(e) =>
+                      setNewTrade({ ...newTrade, account: e.target.value })
+                    }
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {accounts.map(account => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Symbol */}
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">
+                    Symbol
+                  </label>
+                  <input
+                    type="text"
+                    value={newTrade.symbol}
+                    onChange={(e) =>
+                      setNewTrade({ ...newTrade, symbol: e.target.value })
+                    }
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., AAPL, EUR/USD"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Symbol</label>
-              <input
-                type="text"
-                value={newTrade.symbol}
-                onChange={(e) => setNewTrade({...newTrade, symbol: e.target.value})}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., AAPL, EUR/USD"
-              />
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-zinc-400 mb-2">Direction</label>
@@ -593,7 +561,7 @@ function TradesPage() {
 
       {/* Edit Trade Modal */}
       <Modal isOpen={showEditTradeModal} onClose={() => setShowEditTradeModal(false)} maxWidth="max-w-2xl">
-        <div className="p-6">
+        <div className="p-0">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-white">Edit Trade</h3>
           </div>
@@ -601,27 +569,46 @@ function TradesPage() {
           {editingTrade && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Account</label>
-                <select
-                  value={editingTrade.account}
-                  onChange={(e) => setEditingTrade({...editingTrade, account: e.target.value})}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {accounts.map(account => (
-                    <option key={account.id} value={account.id}>{account.name}</option>
-                  ))}
-                </select>
+                <div className="flex flex-col md:flex-row gap-4">
+
+                  {/* Account */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-zinc-400 mb-2">
+                      Account
+                    </label>
+                    <select
+                      value={editingTrade.account}
+                      onChange={(e) =>
+                        setEditingTrade({ ...editingTrade, account: e.target.value })
+                      }
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {accounts.map(account => (
+                        <option key={account.id} value={account.id}>
+                          {account.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Symbol */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-zinc-400 mb-2">
+                      Symbol
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTrade.symbol}
+                      onChange={(e) =>
+                        setEditingTrade({ ...editingTrade, symbol: e.target.value })
+                      }
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Symbol</label>
-                <input
-                  type="text"
-                  value={editingTrade.symbol}
-                  onChange={(e) => setEditingTrade({...editingTrade, symbol: e.target.value})}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">Direction</label>
