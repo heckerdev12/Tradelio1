@@ -10,7 +10,8 @@ import {
   Settings,
   Menu,
   Clock,
-  X
+  X,
+  Terminal
 } from 'lucide-react';
 import { Store } from "@tauri-apps/plugin-store";
 import { loadProfile } from "../api/profile";
@@ -36,6 +37,7 @@ function Sidebar({ activeTab, setActiveTab }) {
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'markethours', label: 'Market Hours', icon: Clock },
     { id: 'profile', label: 'Profile', icon: UserCircle },
+    { id: 'codes', label: 'Codes', icon:  Terminal},
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
