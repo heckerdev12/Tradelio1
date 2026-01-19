@@ -5,6 +5,7 @@ mod profile;
 mod accounts;
 mod folders;
 mod sessions;
+mod code_manager;
 
 use passcode::PasscodeState;
 use accounts::*;
@@ -115,6 +116,13 @@ pub fn run() {
             folders::open_tradelio_folder,
             folders::open_folder_at_path,  
             folders::create_tradelio_at_custom_location,
+            
+            //Code save and preview
+            code_manager::add_code_snippet,
+            code_manager::get_code_snippets,
+            code_manager::get_code_snippet,
+            code_manager::edit_code_snippet,
+            code_manager::remove_code_snippet,  
 
             // Trading sessions toast
             sessions::send_test_notification,
