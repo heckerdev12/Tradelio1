@@ -128,6 +128,7 @@ function ProfilePage() {
         }
       } catch (dbErr) {
         console.log("No profile picture yet");
+        showToast.error("No profile picture yet")
       }
 
       setUser(userData);
@@ -200,9 +201,11 @@ function ProfilePage() {
         }
 
         console.log('✅ Synced from Supabase');
+        showToast.success('✅ Synced from Supabase')
       }
     } catch (err) {
       console.error('Sync from Supabase error:', err);
+      showToast.error('Sync from Supabase error:', err)
     }
   };
 
@@ -290,6 +293,7 @@ function ProfilePage() {
 
       setSyncStatus("✅ Synced to cloud successfully!");
       console.log('✅ Synced to Supabase');
+      showToast.success('✅ Synced to Supabase')
 
     } catch (err) {
       console.error('Sync to Supabase error:', err);
@@ -370,11 +374,11 @@ function ProfilePage() {
       setStats(restoredStats);
       setUserId(cloudUser.id);
 
-      setSyncStatus(`✅ Restored data for ${cloudUser.username}!`);
       setIsRestoreModalOpen(false);
       setRestoreUsername("");
 
       console.log('✅ Data restored from Supabase');
+      showToast.success('✅ Data restored from Supabase');
 
     } catch (err) {
       console.error('Restore error:', err);
