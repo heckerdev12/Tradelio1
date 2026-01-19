@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { showToast } from '../utils/toastConfig';
 
 // ----- ACCOUNTS DATA -----
 const accounts = [
