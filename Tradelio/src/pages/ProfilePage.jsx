@@ -3,6 +3,9 @@ import { Store } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { saveProfileImage, loadProfile } from "../api/profile";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { supabase } from "../lib/supabase";
+import { showToast } from '../utils/toastConfig';
+
 import {
   FaCamera,
   FaEdit,
@@ -10,20 +13,18 @@ import {
   FaChartLine,
   FaDollarSign,
   FaExchangeAlt,
+  FaSync,
 } from "react-icons/fa";
 
-// Initialize store - use async initialization
 let store = null;
 
 async function getStore() {
   if (!store) {
     store = await Store.load("settings.json");
-    console.log("Store initialized");
   }
   return store;
 }
 
-// ----- MODAL COMPONENT -----
 function Modal({ isOpen, onClose, children }) {
   if (!isOpen) return null;
   return (
@@ -41,7 +42,6 @@ function Modal({ isOpen, onClose, children }) {
   );
 }
 
-// Format large numbers
 function formatVolume(num) {
   if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + "B";
   if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
@@ -49,15 +49,13 @@ function formatVolume(num) {
   return num.toString();
 }
 
-// ----- PROFILE PAGE -----
 function ProfilePage() {
   const fileInputRef = useRef(null);
 
   const [user, setUser] = useState({
-    fullName: "",
+    username: "",
     profilePic: "",
     bio: "",
-    joinDate: new Date().toISOString().split("T")[0],
   });
 
   const [stats, setStats] = useState({
@@ -67,48 +65,52 @@ function ProfilePage() {
     accountBalance: 0,
   });
 
+  const [userId, setUserId] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isPicModalOpen, setIsPicModalOpen] = useState(false);
   const [tempUser, setTempUser] = useState({ ...user });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [error, setError] = useState("");
+  const [syncStatus, setSyncStatus] = useState("");
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreUsername, setRestoreUsername] = useState("");
 
   useEffect(() => {
     loadProfileData();
   }, []);
 
-  // Auto-dismiss error after 3 seconds
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => {
-        setError("");
-      }, 3000);
+      const timer = setTimeout(() => setError(""), 3000);
       return () => clearTimeout(timer);
     }
   }, [error]);
 
+  useEffect(() => {
+    if (syncStatus) {
+      const timer = setTimeout(() => setSyncStatus(""), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncStatus]);
+
   const loadProfileData = async () => {
     try {
       setLoading(true);
-      setError(""); // Clear any previous errors
-      
-      console.log("Loading profile data...");
+      setError("");
       
       const storeInstance = await getStore();
       
-      // Load from Store
+      // Load from local store
       const profileData = await storeInstance.get("user_profile");
       const statsData = await storeInstance.get("user_stats");
 
-      console.log("Profile data from store:", profileData);
-      console.log("Stats data from store:", statsData);
-
       let userData = {
-        fullName: "",
+        username: "",
         profilePic: "",
         bio: "",
-        joinDate: new Date().toISOString().split("T")[0],
       };
 
       if (profileData) {
@@ -116,38 +118,269 @@ function ProfilePage() {
           ? JSON.parse(profileData) 
           : profileData;
         userData = { ...userData, ...parsed };
-        console.log("Parsed user data:", userData);
       }
 
-      // Try to load profile pic from database (may not exist yet)
+      // Load profile pic from Tauri backend
       try {
         const dbProfilePic = await loadProfile();
-        console.log("Profile pic from database:", dbProfilePic);
         if (dbProfilePic) {
           userData.profilePic = convertFileSrc(dbProfilePic);
-          console.log("Converted profile pic URL:", userData.profilePic);
         }
       } catch (dbErr) {
-        // It's okay if there's no profile pic yet
-        console.log("No profile picture in database yet:", dbErr);
+        console.log("No profile picture yet");
       }
 
       setUser(userData);
       setTempUser(userData);
 
+      // Load stats from local store
       if (statsData) {
         const parsed = typeof statsData === "string"
           ? JSON.parse(statsData)
           : statsData;
         setStats(parsed);
       }
+
+      // If we have a username, try to sync with Supabase
+      if (userData.username) {
+        await syncFromSupabase(userData.username);
+      }
       
-      console.log("Profile loaded successfully");
     } catch (err) {
       console.error("Error loading profile:", err);
-      // Don't show error for initial load - just use defaults
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sync FROM Supabase (pull cloud data)
+  const syncFromSupabase = async (username) => {
+    try {
+      // Get user from Supabase
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (userError && userError.code !== 'PGRST116') {
+        throw userError;
+      }
+
+      if (existingUser) {
+        setUserId(existingUser.id);
+        
+        // Update local data with cloud data
+        setUser(prev => ({
+          ...prev,
+          bio: existingUser.bio || prev.bio
+        }));
+
+        // Get stats from Supabase
+        const { data: statsData, error: statsError } = await supabase
+          .from('trading_stats')
+          .select('*')
+          .eq('user_id', existingUser.id)
+          .single();
+
+        if (!statsError && statsData) {
+          const cloudStats = {
+            totalTrades: statsData.total_trades || 0,
+            tradingVolume: parseFloat(statsData.trading_volume) || 0,
+            winRate: parseFloat(statsData.win_rate) || 0,
+            accountBalance: parseFloat(statsData.account_balance) || 0,
+          };
+          
+          setStats(cloudStats);
+
+          // Save to local store
+          const storeInstance = await getStore();
+          await storeInstance.set("user_stats", cloudStats);
+          await storeInstance.save();
+        }
+
+        console.log('✅ Synced from Supabase');
+      }
+    } catch (err) {
+      console.error('Sync from Supabase error:', err);
+    }
+  };
+
+  // Sync TO Supabase (push local data to cloud)
+  const syncToSupabase = async () => {
+    if (!user.username) {
+      setError("Please set a username first");
+      return;
+    }
+
+    setSyncing(true);
+    setSyncStatus("");
+
+    try {
+      // Check if user exists
+      const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', user.username)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      let currentUserId = userId;
+
+      if (existingUser) {
+        // User exists - UPDATE
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ bio: user.bio })
+          .eq('username', user.username);
+        
+        if (updateError) throw updateError;
+        currentUserId = existingUser.id;
+        
+      } else {
+        // User doesn't exist - INSERT
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert([{
+            username: user.username,
+            bio: user.bio
+          }])
+          .select()
+          .single();
+        
+        if (insertError) throw insertError;
+        currentUserId = newUser.id;
+        setUserId(newUser.id);
+      }
+
+      // Sync stats to trading_stats table
+      const { data: existingStats } = await supabase
+        .from('trading_stats')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .single();
+
+      const statsToSync = {
+        user_id: currentUserId,
+        total_trades: stats.totalTrades,
+        trading_volume: stats.tradingVolume,
+        win_rate: stats.winRate,
+        account_balance: stats.accountBalance
+      };
+
+      if (existingStats) {
+        // Update stats
+        const { error: statsError } = await supabase
+          .from('trading_stats')
+          .update(statsToSync)
+          .eq('user_id', currentUserId);
+        
+        if (statsError) throw statsError;
+      } else {
+        // Insert stats
+        const { error: statsError } = await supabase
+          .from('trading_stats')
+          .insert([statsToSync]);
+        
+        if (statsError) throw statsError;
+      }
+
+      setSyncStatus("✅ Synced to cloud successfully!");
+      console.log('✅ Synced to Supabase');
+
+    } catch (err) {
+      console.error('Sync to Supabase error:', err);
+      setError(`Sync failed: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Restore FROM Supabase (recover lost data)
+  const restoreFromSupabase = async () => {
+    if (!restoreUsername.trim()) {
+      setError("Please enter a username");
+      return;
+    }
+
+    setRestoring(true);
+    setError("");
+    setSyncStatus("");
+
+    try {
+      // Find user in Supabase
+      const { data: cloudUser, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', restoreUsername.trim())
+        .single();
+
+      if (userError) {
+        if (userError.code === 'PGRST116') {
+          throw new Error('Username not found in cloud');
+        }
+        throw userError;
+      }
+
+      if (!cloudUser) {
+        throw new Error('Username not found in cloud');
+      }
+
+      // Get stats from cloud
+      const { data: cloudStats, error: statsError } = await supabase
+        .from('trading_stats')
+        .select('*')
+        .eq('user_id', cloudUser.id)
+        .single();
+
+      // Restore user data locally
+      const restoredUser = {
+        username: cloudUser.username,
+        bio: cloudUser.bio || "",
+        profilePic: "" // Profile pic can't be restored from cloud
+      };
+
+      const restoredStats = cloudStats ? {
+        totalTrades: cloudStats.total_trades || 0,
+        tradingVolume: parseFloat(cloudStats.trading_volume) || 0,
+        winRate: parseFloat(cloudStats.win_rate) || 0,
+        accountBalance: parseFloat(cloudStats.account_balance) || 0,
+      } : {
+        totalTrades: 0,
+        tradingVolume: 0,
+        winRate: 0,
+        accountBalance: 0,
+      };
+
+      // Save to local store
+      const storeInstance = await getStore();
+      await storeInstance.set("user_profile", {
+        username: restoredUser.username,
+        bio: restoredUser.bio
+      });
+      await storeInstance.set("user_stats", restoredStats);
+      await storeInstance.save();
+
+      // Update UI
+      setUser(restoredUser);
+      setTempUser(restoredUser);
+      setStats(restoredStats);
+      setUserId(cloudUser.id);
+
+      setSyncStatus(`✅ Restored data for ${cloudUser.username}!`);
+      setIsRestoreModalOpen(false);
+      setRestoreUsername("");
+
+      console.log('✅ Data restored from Supabase');
+
+    } catch (err) {
+      console.error('Restore error:', err);
+      setError(`Restore failed: ${err.message}`);
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -156,42 +389,39 @@ function ProfilePage() {
     setError("");
     
     try {
-      console.log("Saving profile data:", tempUser);
-      
       const storeInstance = await getStore();
       
       const dataToSave = {
-        fullName: tempUser.fullName,
+        username: tempUser.username,
         bio: tempUser.bio,
-        joinDate: tempUser.joinDate,
       };
       
-      console.log("Data to save:", dataToSave);
-      
+      // Save locally first
       await storeInstance.set("user_profile", dataToSave);
       await storeInstance.save();
       
-      console.log("Profile saved successfully!");
-      
-      // Update current user state
+      // Update UI
       setUser({
         ...user,
-        fullName: tempUser.fullName,
+        username: tempUser.username,
         bio: tempUser.bio,
-        joinDate: tempUser.joinDate,
       });
       
       setIsEditModalOpen(false);
+
+      // Auto-sync to cloud after save
+      setTimeout(() => {
+        syncToSupabase();
+      }, 500);
+      
     } catch (err) {
       console.error("Save error:", err);
       setError(`Failed to save profile: ${err.message || err}`);
-      // Keep modal open if there's an error
     } finally {
       setSaving(false);
     }
   };
 
-  // ---- TAURI FILE PICKER HANDLER ----
   const handlePickImage = async () => {
     try {
       setError("");
@@ -206,37 +436,24 @@ function ProfilePage() {
 
       if (!selected) return;
 
-      console.log("Selected image:", selected);
-
-      // Save image via Rust backend
       const savedPath = await saveProfileImage(selected);
-      console.log("Image saved to:", savedPath);
-      
-      // Convert to browser-usable URL
       const imageUrl = convertFileSrc(savedPath);
-      console.log("Converted URL:", imageUrl);
 
-      // Update state
       const updatedUser = {
         ...user,
         profilePic: imageUrl,
       };
 
       const storeInstance = await getStore();
-
-      // Save to store
       await storeInstance.set("user_profile", {
-        fullName: updatedUser.fullName,
+        username: updatedUser.username,
         bio: updatedUser.bio,
-        joinDate: updatedUser.joinDate,
       });
       await storeInstance.save();
 
       setUser(updatedUser);
       setTempUser(updatedUser);
       setIsPicModalOpen(false);
-
-      console.log("Profile picture updated successfully!");
 
     } catch (err) {
       console.error("Image pick error:", err);
@@ -261,18 +478,42 @@ function ProfilePage() {
         </div>
       )}
 
+      {/* SYNC STATUS */}
+      {syncStatus && (
+        <div className="mb-4 bg-green-900/20 border border-green-500 text-green-400 px-4 py-3 rounded">
+          {syncStatus}
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-2xl font-bold">Profile</h2>
-        <button
-          onClick={() => {
-            setTempUser({ ...user });
-            setIsEditModalOpen(true);
-          }}
-          className="flex items-center gap-2 bg-zinc-800 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-700"
-        >
-          <FaEdit /> Edit Profile
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsRestoreModalOpen(true)}
+            className="flex items-center gap-2 bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700"
+          >
+            <FaSync />
+            Restore from Cloud
+          </button>
+          <button
+            onClick={syncToSupabase}
+            disabled={syncing || !user.username}
+            className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <FaSync className={syncing ? "animate-spin" : ""} />
+            {syncing ? "Syncing..." : "Sync to Cloud"}
+          </button>
+          <button
+            onClick={() => {
+              setTempUser({ ...user });
+              setIsEditModalOpen(true);
+            }}
+            className="flex items-center gap-2 bg-zinc-800 px-4 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-700"
+          >
+            <FaEdit /> Edit Profile
+          </button>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -286,7 +527,6 @@ function ProfilePage() {
                   alt="Profile"
                   className="w-32 h-32 rounded-full object-cover"
                   onError={(e) => {
-                    console.error("Image failed to load");
                     e.target.style.display = "none";
                   }}
                 />
@@ -305,7 +545,7 @@ function ProfilePage() {
             </div>
 
             <h3 className="text-xl font-semibold mt-4">
-              {user.fullName || "Set your name"}
+              {user.username || "Set your username"}
             </h3>
 
             {user.bio && (
@@ -339,10 +579,10 @@ function ProfilePage() {
 
         <input
           className="w-full bg-zinc-800 border border-zinc-700 px-3 py-2 rounded mb-4"
-          placeholder="Full Name"
-          value={tempUser.fullName}
+          placeholder="Username"
+          value={tempUser.username}
           onChange={(e) =>
-            setTempUser({ ...tempUser, fullName: e.target.value })
+            setTempUser({ ...tempUser, username: e.target.value })
           }
         />
 
@@ -388,11 +628,52 @@ function ProfilePage() {
           Supported formats: PNG, JPG, JPEG, GIF, WEBP
         </p>
       </Modal>
+
+      {/* RESTORE FROM CLOUD MODAL */}
+      <Modal isOpen={isRestoreModalOpen} onClose={() => setIsRestoreModalOpen(false)}>
+        <h3 className="text-lg font-semibold mb-4">Restore from Cloud</h3>
+        
+        <p className="text-sm text-zinc-400 mb-4">
+          Enter your username to restore your profile and stats from Supabase
+        </p>
+
+        <input
+          className="w-full bg-zinc-800 border border-zinc-700 px-3 py-2 rounded mb-4"
+          placeholder="Enter username"
+          value={restoreUsername}
+          onChange={(e) => setRestoreUsername(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') restoreFromSupabase();
+          }}
+        />
+
+        <div className="bg-yellow-900/20 border border-yellow-600 text-yellow-400 px-3 py-2 rounded text-xs mb-4">
+          ⚠️ This will overwrite your current local data
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button 
+            onClick={() => {
+              setIsRestoreModalOpen(false);
+              setRestoreUsername("");
+            }}
+            className="px-4 py-2 text-zinc-400 hover:text-white"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={restoreFromSupabase}
+            disabled={restoring || !restoreUsername.trim()}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            {restoring ? "Restoring..." : "Restore"}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-// SMALL STAT CARD
 function Stat({ label, value, icon }) {
   return (
     <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
