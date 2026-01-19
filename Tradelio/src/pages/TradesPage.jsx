@@ -3,6 +3,7 @@ import { Upload, Plus, Filter, ChevronDown, Calendar, Pencil } from 'lucide-reac
 import Modal from '../components/Modal';
 import DatePicker from '../components/DatePicker';
 import { showToast } from '../utils/toastConfig';
+import { supabase } from "../lib/supabase";
 
 function TradesPage() {
   const [selectedAccount, setSelectedAccount] = useState('standard-cent-account');
